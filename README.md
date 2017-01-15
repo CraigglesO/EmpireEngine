@@ -1,0 +1,18 @@
+
+# NAME_GOES_HERE
+
+### BASIC_INFO_OF_PROJECT_GOES_HERE
+
+INFORMATION_GOES_HERE
+
+## Install
+
+```
+npm install NAME_GOES_HERE
+```
+
+## Usage
+```
+EXAMPLE_USAGE_GOES_HERE
+
+```
