@@ -1,18 +1,20 @@
+# Empire
 
-# NAME_GOES_HERE
+### Let's build a connected world together
 
-### BASIC_INFO_OF_PROJECT_GOES_HERE
-
-INFORMATION_GOES_HERE
+This is the underlining engine that fuels our P2P connections.
 
 ## Install
 
 ```
-npm install NAME_GOES_HERE
+npm install Empire
 ```
 
 ## Usage
 ```
-EXAMPLE_USAGE_GOES_HERE
+import Empire from 'Empire';
+
+
+let E = new Empire();
 
 ```

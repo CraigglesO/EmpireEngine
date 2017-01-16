@@ -1,12 +1,14 @@
 {
-  "name": "Empire",
-  "version": "0.0.1",
+  "name": "EmpireJS",
+  "version": "0.1.27",
   "description": "Let's build a connected world together",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "npm run build:live",
-    "build:live": "nodemon --exec ./node_modules/.bin/ts-node -- ./index.ts"
+    "debug": "npm run build:debug",
+    "build:live": "nodemon --exec ./node_modules/.bin/ts-node -- ./index.ts",
+    "build:debug": "./node_modules/.bin/ts-node debug ./index.ts"
   },
   "author": "Craig OConnor",
   "license": "ISC",
@@ -16,9 +18,14 @@
     "ts-node": "^2.0.0",
     "typescript": "^2.1.5"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CraigglesO/Empire.git"
+  },
   "dependencies": {
     "@types/lodash": "^4.14.50",
     "bencode": "^0.11.0",
+    "bitfield": "^1.1.2",
     "mkdirp": "^0.5.1",
     "write-json-file": "^2.0.0"
   }

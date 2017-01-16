@@ -52,10 +52,5 @@
 
 
 
-let x = [1, 3, 5];
-
-let y = [3, 7, 9];
-
-y = y.concat(x);
-
-console.log(y);
+let x = new Date(1484587211894);
+console.log(x);

@@ -1,9 +1,10 @@
 import { Writable } from 'stream';
 import * as fs from 'fs';
 
-import { decodeTorrentFile, decodeTorrent, encodeTorrent } from './parseTorrent/parseTorrent';
+import { decodeTorrentFile, decodeTorrent, encodeTorrent } from './modules/parseTorrent';
 import torrentEngine from './Client/torrentEngine';
 
+const debug = require('debug')('Empire');
 const readJsonSync = require('read-json-sync');
 const writeJsonFile = require('write-json-file');
 const mkdirp = require('mkdirp');
