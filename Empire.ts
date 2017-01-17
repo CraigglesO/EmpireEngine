@@ -1,20 +1,21 @@
 import { Writable } from 'stream';
 import * as fs from 'fs';
+import * as debug from 'debug';
+debug('Empire');
 
 import { decodeTorrentFile, decodeTorrent, encodeTorrent } from './modules/parseTorrent';
 import torrentEngine from './Client/torrentEngine';
 
-const debug = require('debug')('Empire');
 const readJsonSync = require('read-json-sync');
 const writeJsonFile = require('write-json-file');
 const mkdirp = require('mkdirp');
 
 class Empire extends Writable {
-  config:            Object;
-  downloadDirectory: string;
-  maxPeers:          number;
-  downloadPriority:  string;
-  torrents:          Object;
+  config:            Object
+  downloadDirectory: string
+  maxPeers:          number
+  downloadPriority:  string
+  torrents:          Object
   constructor() {
     super();
     const self = this;
@@ -51,7 +52,7 @@ class Empire extends Writable {
     torrent['finished pieces'] = [];
     torrent['uploaded'] = 0;
     torrent['downloaded'] = 0;
-    torrent['left'] = 0;
+    torrent['left'] = -1; // This lets the torrentEngine know it's a new torrent
     // Create the folders and files:
     let files = torrent['files'];
     files.forEach((folders) => {

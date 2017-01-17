@@ -1,11 +1,14 @@
 'use strict';
 const events_1 = require("events");
 const dgram = require("dgram");
-const debug = require('debug')('trackerClient');
+const debug = require("debug");
+debug('trackerClient');
 const writeUInt64BE = require('writeUInt64BE'), ACTION_CONNECT = 0, ACTION_ANNOUNCE = 1, ACTION_SCRAPE = 2, ACTION_ERROR = 3, connectionIdHigh = 0x417, connectionIdLow = 0x27101980;
 class udpTracker extends events_1.EventEmitter {
     constructor(trackerHost, port, myPort, infoHash) {
         super();
+        if (!(this instanceof udpTracker))
+            return new udpTracker(trackerHost, port, myPort, infoHash);
         const self = this;
         self.HOST = trackerHost;
         self.HASH = infoHash;
@@ -175,6 +178,12 @@ class udpTracker extends events_1.EventEmitter {
 }
 exports.udpTracker = udpTracker;
 class wssTracker extends events_1.EventEmitter {
+    constructor() {
+        super();
+        if (!(this instanceof wssTracker))
+            return new wssTracker();
+        const self = this;
+    }
 }
 exports.wssTracker = wssTracker;
 //# sourceMappingURL=trackerClient.js.map

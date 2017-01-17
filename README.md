@@ -7,12 +7,12 @@ This is the underlining engine that fuels our P2P connections.
 ## Install
 
 ```
-npm install Empire
+npm install EmpireJS
 ```
 
 ## Usage
 ```
-import Empire from 'Empire';
+import Empire from 'EmpireJS';
 
 
 let E = new Empire();

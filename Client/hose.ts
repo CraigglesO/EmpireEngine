@@ -4,10 +4,11 @@
 
 import { Duplex } from 'stream';
 import { Buffer } from 'buffer';
+import * as debug from 'debug';
+debug('hose');
 
 import { Encode, Decode } from '../modules/bencoder';
 
-const debug       = require('debug')('hose');
 const speedometer = require('speedometer');
 const Bitfield    = require("bitfield");
 
@@ -28,28 +29,27 @@ const PROTOCOL     = Buffer.from('\u0013BitTorrent protocol'),
       CANCEL       = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]);
 
 class Hose extends Duplex {
-  _debugId:       number;
-  destroyed:      Boolean;
-  sentHandshake:  Boolean;
-  bufferSize:     number;
-  streamStore:    Array<Buffer>;
-  parseSize:      number;
-  actionStore:    Function;
-  uploadSpeed:    Function;
-  downloadSpeed:  Function;
-  infoHash:       string;
-  peerID:         string;
-  choked:         Boolean;
-  interested:     Boolean;
-  isActive:       Boolean;
-  pieces:         any;
-  haveSuppression: Boolean;
+  _debugId:        number
+  destroyed:       Boolean
+  sentHandshake:   Boolean
+  bufferSize:      number
+  streamStore:     Array<Buffer>
+  parseSize:       number
+  actionStore:     Function
+  uploadSpeed:     Function
+  downloadSpeed:   Function
+  infoHash:        string
+  peerID:          string
+  choked:          Boolean
+  interested:      Boolean
+  isActive:        Boolean
+  bitfield:        any
+  haveSuppression: Boolean
 
-  constructor (opts?: Object) {
+  constructor (bitfield?: any) {
     super();
-    if (!opts) opts = {};
     if (!(this instanceof Hose))
-      return new Hose(opts);
+      return new Hose(bitfield);
 
     this._debugId       = ~~((Math.random()*100000)+1);
 
@@ -66,7 +66,7 @@ class Hose extends Duplex {
     this.peerID          = '';
     this.choked          = true;
     this.interested      = false;
-    this.pieces          = null;
+    this.bitfield        = bitfield;
     this.haveSuppression = false;
 
     this.on('complete', this.destroy);
@@ -122,11 +122,10 @@ class Hose extends Duplex {
 
   // All built in functionality goes here:
 
-  // This will all be handled with this.push
+  // Read streams will all be handled with this.push
   _read() {}
   // Handling incoming messages with message length (this.parseSize)
   // and cueing up commands to handle the message (this.actionStore)
-  // send a null to let stream know we are done and ready for the next input.
   _write(payload: Buffer, encoding?: string, next?: Function) {
     this._debug('new Data! %o');
     this.bufferSize += payload.length;             // Increase our buffer size count, we have more data
@@ -143,7 +142,7 @@ class Hose extends Duplex {
         : [];
       this.actionStore(buf.slice(0, this.parseSize));  // Let us run the code we have!
     }
-
+    // send a null to let stream know we are done and ready for the next input.
     next(null);
   }
 
@@ -187,7 +186,7 @@ class Hose extends Duplex {
   }
 
   _onHave(pieceIndex) {
-    this.pieces.set(pieceIndex, true);
+    this.bitfield.set(pieceIndex, true);
     if (!this.haveSuppression)
       this.emit('have', pieceIndex);
   }
@@ -195,8 +194,8 @@ class Hose extends Duplex {
   _onBitfield(payload) {
     // Here we have recieved a bitfield (first message)
     // 1) send to torrentEngine to decide which piece to download
-    this.pieces = new Bitfield(payload);
-    this.emit('bitfield', this.pieces);
+    this.bitfield = new Bitfield(payload);
+    this.emit('bitfield', this.bitfield);
   }
 
   _onRequest(index, begin, length) {

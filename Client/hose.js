@@ -1,24 +1,23 @@
 'use strict';
 const stream_1 = require("stream");
 const buffer_1 = require("buffer");
-const debug = require('debug')('hose');
+const debug = require("debug");
+debug('hose');
 const speedometer = require('speedometer');
 const Bitfield = require("bitfield");
 const BITFIELD_MAX_SIZE = 100000;
 const KEEP_ALIVE_TIMEOUT = 55000;
 const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]);
 class Hose extends stream_1.Duplex {
-    constructor(opts) {
+    constructor(bitfield) {
         super();
         this._debug = function (...args) {
             args = [].slice.call(arguments);
             args[0] = '[' + this._debugId + '] ' + args[0];
             debug.apply(null, args);
         };
-        if (!opts)
-            opts = {};
         if (!(this instanceof Hose))
-            return new Hose(opts);
+            return new Hose(bitfield);
         this._debugId = ~~((Math.random() * 100000) + 1);
         this.destroyed = false;
         this.sentHandshake = false;
@@ -32,7 +31,7 @@ class Hose extends stream_1.Duplex {
         this.peerID = '';
         this.choked = true;
         this.interested = false;
-        this.pieces = null;
+        this.bitfield = bitfield;
         this.haveSuppression = false;
         this.on('complete', this.destroy);
         this.prepHandshake();
@@ -113,13 +112,13 @@ class Hose extends stream_1.Duplex {
         this.actionStore = action;
     }
     _onHave(pieceIndex) {
-        this.pieces.set(pieceIndex, true);
+        this.bitfield.set(pieceIndex, true);
         if (!this.haveSuppression)
             this.emit('have', pieceIndex);
     }
     _onBitfield(payload) {
-        this.pieces = new Bitfield(payload);
-        this.emit('bitfield', this.pieces);
+        this.bitfield = new Bitfield(payload);
+        this.emit('bitfield', this.bitfield);
     }
     _onRequest(index, begin, length) {
     }

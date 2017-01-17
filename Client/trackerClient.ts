@@ -2,8 +2,9 @@
 
 import { EventEmitter } from 'events';
 import * as dgram from 'dgram';
+import * as debug from 'debug';
+debug('trackerClient');
 
-const debug = require('debug')('trackerClient');
 
 const writeUInt64BE   = require('writeUInt64BE'),
       ACTION_CONNECT  = 0,
@@ -14,24 +15,26 @@ const writeUInt64BE   = require('writeUInt64BE'),
       connectionIdLow  = 0x27101980;
 
 class udpTracker extends EventEmitter {
-  HOST:           string;
-  HASH:           string;
-  PORT:           number;
-  MY_PORT:        number;
-  TRANSACTION_ID: number;
-  EVENT:          number;
-  SCRAPE:         Boolean;
-  DOWNLOADED:     number;
-  LEFT:           number;
-  UPLOADED:       number;
-  KEY:            number;
-  IP_ADDRESS:     number;
-  TIMEOUTS:       Array<any>;
-  TIMEOUTS_DATE:  number;
-  TIMEOUT_N:      number;
-  server:         any;
+  HOST:           string
+  HASH:           string
+  PORT:           number
+  MY_PORT:        number
+  TRANSACTION_ID: number
+  EVENT:          number
+  SCRAPE:         Boolean
+  DOWNLOADED:     number
+  LEFT:           number
+  UPLOADED:       number
+  KEY:            number
+  IP_ADDRESS:     number
+  TIMEOUTS:       Array<any>
+  TIMEOUTS_DATE:  number
+  TIMEOUT_N:      number
+  server:         any
   constructor(trackerHost: string, port: number, myPort: number, infoHash: string) {
     super();
+    if (!(this instanceof udpTracker))
+      return new udpTracker(trackerHost, port, myPort, infoHash);
     const self = this;
 
     self.HOST = trackerHost;
@@ -252,7 +255,12 @@ class udpTracker extends EventEmitter {
 }
 
 class wssTracker extends EventEmitter {
-
+  constructor() {
+    super();
+    if (!(this instanceof wssTracker))
+      return new wssTracker();
+    const self = this;
+  }
 }
 
 export { udpTracker, wssTracker };

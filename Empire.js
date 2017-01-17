@@ -1,9 +1,10 @@
 "use strict";
 const stream_1 = require("stream");
 const fs = require("fs");
+const debug = require("debug");
+debug('Empire');
 const parseTorrent_1 = require("./modules/parseTorrent");
 const torrentEngine_1 = require("./Client/torrentEngine");
-const debug = require('debug')('Empire');
 const readJsonSync = require('read-json-sync');
 const writeJsonFile = require('write-json-file');
 const mkdirp = require('mkdirp');
@@ -34,7 +35,7 @@ class Empire extends stream_1.Writable {
         torrent['finished pieces'] = [];
         torrent['uploaded'] = 0;
         torrent['downloaded'] = 0;
-        torrent['left'] = 0;
+        torrent['left'] = -1;
         let files = torrent['files'];
         files.forEach((folders) => {
             folders = './' + self.downloadDirectory + '/' + folders.path;

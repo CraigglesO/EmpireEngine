@@ -582,7 +582,7 @@
 			"finished pieces": [],
 			"uploaded": 0,
 			"downloaded": 0,
-			"left": 0
+			"left": -1
 		}
 	]
 }
