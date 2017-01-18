@@ -4,11 +4,14 @@ import * as inherits from 'inherits';
 import { udpTracker, wssTracker } from './trackerClient';
 import Hose from './Hose';
 import parseTracker from '../modules/parse-p2p-tracker';
+import binaryBitfield from '../modules/binary-bitfield';
 import * as _ from 'lodash';
 import * as debug from 'debug';
 debug('torrentEngine');
 
 const Bitfield = require("bitfield");
+
+const MAX_PEERS = 50;
 
 class torrentHandler extends EventEmitter {
   _debugId:       number
@@ -44,7 +47,7 @@ class torrentHandler extends EventEmitter {
     self.peers         = {};
     self.hoses         = {};
     self.connectQueue  = [];
-    self.bitfield      = this.setBitField(torrent.pieces.length);
+    self.bitfield      = new binaryBitfield(torrent.pieces.length);
 
     // Trackers (WSS/UDP)
     self.torrent['announce'].forEach((tracker: string) => {
@@ -56,11 +59,12 @@ class torrentHandler extends EventEmitter {
         self.trackers[tracker] = new wssTracker();
       }
 
-      self.trackers[tracker].on('peers', (interval, leechers, seeders, peers) => {
+      self.trackers[tracker].on('announce', (interval, leechers, seeders, peers) => {
         let p = peers.split(',');
         self.connectQueue = self.connectQueue.concat(p);
-        self.connectQueue = _.uniq(self.connectQueue);
+        self.connectQueue = _.uniq(self.connectQueue);  // MAYBE not do this, because reconnecting to an old peer might prove useful.
         //TODO: Create a queue action and emit an update above
+        self.sendConnectionRequests();
       });
 
       self.trackers[tracker].on('error', () => {
@@ -97,21 +101,18 @@ class torrentHandler extends EventEmitter {
 
   }
 
-  setBitField(pLength?: number) {
-    if (pLength)
-      new Bitfield(pLength);
-    else
-      new Bitfield(0, );
-  }
-
-  peerReview() {
-
+  sendConnectionRequests() {
+    const self = this;
+    // Determine how much room we have to add peers and connect.
+    if (self.peers.length < MAX_PEERS && (self.connectQueue.length)) {
+      let peer = self.connectQueue.shift().split(':');
+      self.createPeer(peer[1], peer[0]);
+    }
   }
 
   createPeer(port, host) {
     const self = this;
-    // Needed to create peer:
-    // 1)
+
     let peer = self.peers[host] = [port, 'ipv4', null, null];
     peer[3] = connect(port, host);
 

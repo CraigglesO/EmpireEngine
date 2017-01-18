@@ -6,11 +6,11 @@ import * as debug from 'debug';
 debug('trackerClient');
 
 
-const writeUInt64BE   = require('writeUInt64BE'),
-      ACTION_CONNECT  = 0,
-      ACTION_ANNOUNCE = 1,
-      ACTION_SCRAPE   = 2,
-      ACTION_ERROR    = 3,
+const writeUInt64BE    = require('writeUInt64BE'),
+      ACTION_CONNECT   = 0,
+      ACTION_ANNOUNCE  = 1,
+      ACTION_SCRAPE    = 2,
+      ACTION_ERROR     = 3,
       connectionIdHigh = 0x417,
       connectionIdLow  = 0x27101980;
 

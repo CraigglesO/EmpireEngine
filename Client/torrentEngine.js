@@ -4,10 +4,12 @@ const events_1 = require("events");
 const trackerClient_1 = require("./trackerClient");
 const Hose_1 = require("./Hose");
 const parse_p2p_tracker_1 = require("../modules/parse-p2p-tracker");
+const binary_bitfield_1 = require("../modules/binary-bitfield");
 const _ = require("lodash");
 const debug = require("debug");
 debug('torrentEngine');
 const Bitfield = require("bitfield");
+const MAX_PEERS = 50;
 class torrentHandler extends events_1.EventEmitter {
     constructor(torrent) {
         super();
@@ -31,7 +33,7 @@ class torrentHandler extends events_1.EventEmitter {
         self.peers = {};
         self.hoses = {};
         self.connectQueue = [];
-        self.bitfield = this.setBitField(torrent.pieces.length);
+        self.bitfield = new binary_bitfield_1.default(torrent.pieces.length);
         self.torrent['announce'].forEach((tracker) => {
             let pt = parse_p2p_tracker_1.default(tracker);
             if (pt.type === 'upd') {
@@ -40,10 +42,11 @@ class torrentHandler extends events_1.EventEmitter {
             else {
                 self.trackers[tracker] = new trackerClient_1.wssTracker();
             }
-            self.trackers[tracker].on('peers', (interval, leechers, seeders, peers) => {
+            self.trackers[tracker].on('announce', (interval, leechers, seeders, peers) => {
                 let p = peers.split(',');
                 self.connectQueue = self.connectQueue.concat(p);
                 self.connectQueue = _.uniq(self.connectQueue);
+                self.sendConnectionRequests();
             });
             self.trackers[tracker].on('error', () => {
                 self.trackerData[tracker + ':failure'] = true;
@@ -65,13 +68,12 @@ class torrentHandler extends events_1.EventEmitter {
             });
         }).listen(self.port);
     }
-    setBitField(pLength) {
-        if (pLength)
-            new Bitfield(pLength);
-        else
-            new Bitfield(0);
-    }
-    peerReview() {
+    sendConnectionRequests() {
+        const self = this;
+        if (self.peers.length < MAX_PEERS && (self.connectQueue.length)) {
+            let peer = self.connectQueue.shift().split(':');
+            self.createPeer(peer[1], peer[0]);
+        }
     }
     createPeer(port, host) {
         const self = this;

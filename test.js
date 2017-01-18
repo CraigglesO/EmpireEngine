@@ -51,6 +51,9 @@
 
 
 
+let x = ['1.4.2.5:2356','2.4.2.5:2356','3.4.2.5:2356','4.4.2.5:2356' ];
 
-let x = new Date(1484587211894);
+let peer = x.shift().split(':');
+
 console.log(x);
+console.log(peer);

@@ -24,8 +24,8 @@ const PROTOCOL     = Buffer.from('\u0013BitTorrent protocol'),
       UNINTERESTED = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]),
       HAVE         = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]),
       BITFIELD     = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]),
-      REQUEST      = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x06]),
-      PIECE        = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x07]),
+      REQUEST      = Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), // Requests are 2 code and 3 32 bit integers
+      PIECE        = Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), // Pieces are 1 code and 2 16 bit integers and then the piece...
       CANCEL       = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]);
 
 class Hose extends Duplex {
@@ -193,7 +193,6 @@ class Hose extends Duplex {
 
   _onBitfield(payload) {
     // Here we have recieved a bitfield (first message)
-    // 1) send to torrentEngine to decide which piece to download
     this.bitfield = new Bitfield(payload);
     this.emit('bitfield', this.bitfield);
   }
@@ -211,60 +210,66 @@ class Hose extends Duplex {
   }
 
   handleCode(payload: Buffer) {
-    this.messageLength()                             // Prep for the next messageLength
+    const self = this;
+    self.messageLength()                             // Prep for the next messageLength
     console.log('debug message code and extra: ', payload);
     switch (payload[0]) {
       case 0:
         // Choke
-        this._debug('got choke');
-        this.choked = true;
-        this._push(CHOKE);
+        self._debug('got choke');
+        self.choked = true;
+        self._push(CHOKE);
         break;
       case 1:
         // Unchoke
-        this._debug('got unchoke');
-        this.choked = false;
-        this._push(UNCHOKE);
+        self._debug('got unchoke');
+        if (self.choked === false) {
+
+        } else {
+          self.choked = false;
+          self._push(UNCHOKE);
+        }
         break;
       case 2:
         // Interested
-        this._debug('peer is interested');
-        this.emit('interested');
-        this.choked = false;
-        this._push(UNCHOKE);
+        self._debug('peer is interested');
+        self.emit('interested');
+        self.choked = false;
+        self._push(Buffer.concat([INTERESTED, UNCHOKE]));
         break;
       case 3:
         // Not INTERESTED
-        this._debug('got uninterested');
-        this.closeConnection();
+        self._debug('got uninterested');
+        self.closeConnection();
         break;
       case 4:
         // Have
-        this._debug('got have');
-        this._onHave(payload.readUInt32BE(1));
+        self._debug('got have');
+        self._onHave(payload.readUInt32BE(1));
         break;
       case 5:
         // Bitfield
-        this._debug('Recieved bitfield');
-        this._onBitfield(payload.slice(1)); //remove the ID from buffer
+        self._debug('Recieved bitfield');
+        self._onBitfield(payload.slice(1)); //remove the ID from buffer
         break;
       case 6:
         // Request
-        this._debug('Recieved request');
-        this._onRequest(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.readUInt32BE(9));
+        if (self.choked) return;
+        self._debug('Recieved request');
+        self._onRequest(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.readUInt32BE(9));
         break;
       case 7:
         // Piece
-        this._debug('Recieved piece');
-        this._onPiece(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.slice(9));
+        self._debug('Recieved piece');
+        self._onPiece(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.slice(9));
         break;
       case 8:
         // Cancel
-        this._debug('Recieved cancel');
-        this._onCancel(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.readUInt32BE(9));
+        self._debug('Recieved cancel');
+        self._onCancel(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.readUInt32BE(9));
         break;
       default:
-        console.log('error, wrong message');
+        this._debug('error, wrong message');
     }
   }
 

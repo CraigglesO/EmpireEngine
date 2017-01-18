@@ -7,7 +7,7 @@ const speedometer = require('speedometer');
 const Bitfield = require("bitfield");
 const BITFIELD_MAX_SIZE = 100000;
 const KEEP_ALIVE_TIMEOUT = 55000;
-const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]);
+const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]);
 class Hose extends stream_1.Duplex {
     constructor(bitfield) {
         super();
@@ -127,51 +127,58 @@ class Hose extends stream_1.Duplex {
     _onCancel(index, begin, length) {
     }
     handleCode(payload) {
-        this.messageLength();
+        const self = this;
+        self.messageLength();
         console.log('debug message code and extra: ', payload);
         switch (payload[0]) {
             case 0:
-                this._debug('got choke');
-                this.choked = true;
-                this._push(CHOKE);
+                self._debug('got choke');
+                self.choked = true;
+                self._push(CHOKE);
                 break;
             case 1:
-                this._debug('got unchoke');
-                this.choked = false;
-                this._push(UNCHOKE);
+                self._debug('got unchoke');
+                if (self.choked === false) {
+                }
+                else {
+                    self.choked = false;
+                    self._push(UNCHOKE);
+                }
                 break;
             case 2:
-                this._debug('peer is interested');
-                this.emit('interested');
-                this.choked = false;
-                this._push(UNCHOKE);
+                self._debug('peer is interested');
+                self.emit('interested');
+                self.choked = false;
+                self._push(buffer_1.Buffer.concat([INTERESTED, UNCHOKE]));
                 break;
             case 3:
-                this._debug('got uninterested');
-                this.closeConnection();
+                self._debug('got uninterested');
+                self.closeConnection();
                 break;
             case 4:
-                this._debug('got have');
-                this._onHave(payload.readUInt32BE(1));
+                self._debug('got have');
+                self._onHave(payload.readUInt32BE(1));
                 break;
             case 5:
-                this._debug('Recieved bitfield');
-                this._onBitfield(payload.slice(1));
+                self._debug('Recieved bitfield');
+                self._onBitfield(payload.slice(1));
                 break;
             case 6:
-                this._debug('Recieved request');
-                this._onRequest(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.readUInt32BE(9));
+                if (self.choked)
+                    return;
+                self._debug('Recieved request');
+                self._onRequest(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.readUInt32BE(9));
                 break;
             case 7:
-                this._debug('Recieved piece');
-                this._onPiece(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.slice(9));
+                self._debug('Recieved piece');
+                self._onPiece(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.slice(9));
                 break;
             case 8:
-                this._debug('Recieved cancel');
-                this._onCancel(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.readUInt32BE(9));
+                self._debug('Recieved cancel');
+                self._onCancel(payload.readUInt32BE(1), payload.readUInt32BE(5), payload.readUInt32BE(9));
                 break;
             default:
-                console.log('error, wrong message');
+                this._debug('error, wrong message');
         }
     }
     closeConnection() {

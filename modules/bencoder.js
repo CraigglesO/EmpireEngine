@@ -1,6 +1,6 @@
 'use strict';
-var Decode = (function () {
-    function Decode(data, start, end, encoding) {
+class Decode {
+    constructor(data, start, end, encoding) {
         if (data == null || data.length === 0) {
             return null;
         }
@@ -20,7 +20,7 @@ var Decode = (function () {
         this.bytes = this.data.length;
         return this.next();
     }
-    Decode.prototype.next = function () {
+    next() {
         switch (this['data'][this['position']]) {
             case 0x64:
                 return this.dictionary();
@@ -31,8 +31,8 @@ var Decode = (function () {
             default:
                 return this.buffer();
         }
-    };
-    Decode.prototype.find = function (chr) {
+    }
+    find(chr) {
         var i = this.position;
         var c = this.data.length;
         var d = this.data;
@@ -44,8 +44,8 @@ var Decode = (function () {
         throw new Error('Invalid data: Missing delimiter "' +
             String.fromCharCode(chr) + '" [0x' +
             chr.toString(16) + ']');
-    };
-    Decode.prototype.dictionary = function () {
+    }
+    dictionary() {
         this.position++;
         var dict = {};
         while (this.data[this.position] !== 0x65) {
@@ -53,8 +53,8 @@ var Decode = (function () {
         }
         this.position++;
         return dict;
-    };
-    Decode.prototype.list = function () {
+    }
+    list() {
         this.position++;
         var lst = [];
         while (this.data[this.position] !== 0x65) {
@@ -62,27 +62,26 @@ var Decode = (function () {
         }
         this.position++;
         return lst;
-    };
-    Decode.prototype.integer = function () {
+    }
+    integer() {
         var end = this.find(0x65);
         var number = getIntFromBuffer(this.data, this.position + 1, end);
         this.position += end + 1 - this.position;
         return number;
-    };
-    Decode.prototype.buffer = function () {
-        var sep = this.find(0x3A);
-        var length = getIntFromBuffer(this.data, this.position, sep);
-        var end = ++sep + length;
+    }
+    buffer() {
+        let sep = this.find(0x3A);
+        let length = getIntFromBuffer(this.data, this.position, sep);
+        let end = ++sep + length;
         this.position = end;
         return this.encoding
             ? this.data.toString(this.encoding, sep, end)
             : this.data.slice(sep, end);
-    };
-    return Decode;
-}());
+    }
+}
 exports.Decode = Decode;
-var Encode = (function () {
-    function Encode(data, buffer, offset) {
+class Encode {
+    constructor(data, buffer, offset) {
         this.buffE = new Buffer('e');
         this.buffD = new Buffer('d');
         this.buffL = new Buffer('l');
@@ -99,7 +98,7 @@ var Encode = (function () {
         }
         return result;
     }
-    Encode.prototype._encode = function (buffers, data) {
+    _encode(buffers, data) {
         if (Buffer.isBuffer(data)) {
             buffers.push(new Buffer(data.length + ':'));
             buffers.push(data);
@@ -124,11 +123,11 @@ var Encode = (function () {
                 this.number(buffers, data ? 1 : 0);
                 break;
         }
-    };
-    Encode.prototype.buffer = function (buffers, data) {
+    }
+    buffer(buffers, data) {
         buffers.push(new Buffer(Buffer.byteLength(data) + ':' + data));
-    };
-    Encode.prototype.number = function (buffers, data) {
+    }
+    number(buffers, data) {
         var maxLo = 0x80000000;
         var hi = (data / maxLo) << 0;
         var lo = (data % maxLo) << 0;
@@ -139,8 +138,8 @@ var Encode = (function () {
             console.warn('WARNING: Possible data corruption detected with value "' + data + '":', 'Bencoding only defines support for integers, value was converted to "' + val + '"');
             console.trace();
         }
-    };
-    Encode.prototype.dict = function (buffers, data) {
+    }
+    dict(buffers, data) {
         buffers.push(this.buffD);
         var j = 0;
         var k;
@@ -154,8 +153,8 @@ var Encode = (function () {
             this._encode(buffers, data[k]);
         }
         buffers.push(this.buffE);
-    };
-    Encode.prototype.list = function (buffers, data) {
+    }
+    list(buffers, data) {
         var i = 0;
         var c = data.length;
         buffers.push(this.buffL);
@@ -165,15 +164,14 @@ var Encode = (function () {
             this._encode(buffers, data[i]);
         }
         buffers.push(this.buffE);
-    };
-    return Encode;
-}());
+    }
+}
 exports.Encode = Encode;
 function getIntFromBuffer(buffer, start, end) {
-    var sum = 0;
-    var sign = 1;
-    for (var i = start; i < end; i++) {
-        var num = buffer[i];
+    let sum = 0;
+    let sign = 1;
+    for (let i = start; i < end; i++) {
+        let num = buffer[i];
         if (num < 58 && num >= 48) {
             sum = sum * 10 + (num - 48);
             continue;
@@ -192,3 +190,4 @@ function getIntFromBuffer(buffer, start, end) {
     }
     return sum * sign;
 }
+//# sourceMappingURL=bencoder.js.map

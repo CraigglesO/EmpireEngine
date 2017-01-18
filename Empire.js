@@ -8,6 +8,7 @@ const torrentEngine_1 = require("./Client/torrentEngine");
 const readJsonSync = require('read-json-sync');
 const writeJsonFile = require('write-json-file');
 const mkdirp = require('mkdirp');
+
 class Empire extends stream_1.Writable {
     constructor() {
         super();
