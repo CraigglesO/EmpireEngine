@@ -49,8 +49,10 @@ class binaryBitfield {
   pieces:        number
   bitfield:      string
   downloaded:    string
+  downloading:    string
+  totalBitfield: string
   percent:       number
-  constructor (pieces: number | string | Buffer, downloaded?: string | Buffer) {
+  constructor (pieces: number | string | Buffer, downloaded?: number | string | Buffer) {
     if (!(this instanceof binaryBitfield))
       return new binaryBitfield(pieces);
 
@@ -64,12 +66,13 @@ class binaryBitfield {
       downloaded = this.hex2binary(downloaded);
     }
 
-    this.pieces     = (typeof pieces === 'number') ? pieces : this.countPieces(pieces);
-    this.bitfield   = this.setPieces(this.pieces);
-    this.downloaded = (downloaded)
+    this.pieces        = (typeof pieces === 'number') ? pieces : this.countPieces(pieces);
+    this.bitfield      = this.setPieces(this.pieces);
+    this.downloading   = this.downloaded = (downloaded)
       ? this.d2binary(downloaded)
       : this.setZeros(this.pieces);
-    this.percent    = 0;
+    this.totalBitfield = this.downloading;
+    this.percent       = 0;
     this.getPercentage();
   }
 
@@ -88,13 +91,13 @@ class binaryBitfield {
     return result;
   }
 
-  d2binary(downloaded): string {
-    if (Buffer.isBuffer(downloaded))
-      downloaded = downloaded.toString('hex');
-    downloaded = this.hex2binary(downloaded);
-    while (downloaded.length < this.pieces)
-      downloaded += '00000000';
-    return downloaded;
+  d2binary(downloading): string {
+    if (Buffer.isBuffer(downloading))
+      downloading = downloading.toString('hex');
+    downloading = this.hex2binary(downloading);
+    while (downloading.length < this.pieces)
+      downloading += '00000000';
+    return downloading;
   }
 
   setZeros(pieces: number): string {
@@ -158,10 +161,18 @@ class binaryBitfield {
     return (this.bitfield === bits);
   }
 
-  findNewPieces(bits: string | Buffer, cb: Function) {
-    const self = this;
+  findNewPieces(bits: string | Buffer, type: Boolean | Function, cb?: Function) {
+    if (typeof type === 'function') {
+      cb = type;
+      type = false;
+    }
+    const self    = this;
     let result    = '';
     let add2total = '';
+    let rarest    = (-1);
+    let lowNum    = Infinity;
+    let earliest  = (-1);
+    let firstSet  = false;
     if (Buffer.isBuffer(bits))
       bits = bits.toString('hex');
     bits = self.hex2binary(bits);
@@ -169,34 +180,70 @@ class binaryBitfield {
       bits += '00000000';
     }
     process.nextTick(() => {
+      // TODO:
+      // 1) rarest piece that user has
+      // 2) earliest peice that i need
       for (let i = 0; i < bits.length; i++) {
-        if (self.downloaded[i] === '0' && bits[i] === '1')
+        //Check if user has a new piece that client does not have
+        if (self.downloading[i] === '0' && bits[i] === '1') {
           result += '1';
-        else
+          if (!firstSet) {
+            firstSet = true;
+            earliest = i;
+          }
+        } else {
           result += '0';
+        }
+
+        //Update total bitfield:
         if (bits[i] === '1') {
-          let num = Number(self.downloaded[i]);
+          let num = Number(self.totalBitfield[i]);
           num++;
+          if (num < lowNum && i < self.pieces && self.downloading[i] === '0') {
+            lowNum = num;
+            rarest = i;
+          }
           add2total += num;
         }
         else
-          add2total += self.downloaded[i];
+          add2total += self.totalBitfield[i];
       }
-      self.downloaded = add2total;
-      cb(self.binary2hex(result), self.downloaded);
+      let which = (-1);
+      if (!type && earliest !== (-1)) {
+        self.set(earliest);
+        which = earliest;
+      } else if (type && rarest !== (-1)) {
+        self.set(rarest);
+        which = rarest;
+      }
+      self.totalBitfield = add2total;
+      cb(result, self.downloading, which);
     });
   }
 
   set(piece: number, b?: Boolean) {
     if (b || arguments.length === 1)
+      this.downloading = this.downloading.slice(0, piece) + '1' + this.downloading.slice(piece + 1);
+    else
+      this.downloading = this.downloading.slice(0, piece) + '0' + this.downloading.slice(piece + 1);
+    this.getPercentage();
+    return this.downloading;
+  }
+
+  get(piece: number): Boolean {
+    return !!(Number(this.downloading[piece]));
+  }
+
+  setDownloaded(piece: number, b?: Boolean) {
+    if (b || arguments.length === 1)
       this.downloaded = this.downloaded.slice(0, piece) + '1' + this.downloaded.slice(piece + 1);
     else
       this.downloaded = this.downloaded.slice(0, piece) + '0' + this.downloaded.slice(piece + 1);
     this.getPercentage();
-    return this.downloaded;
+    return this.percent;
   }
 
-  get(piece: number): Boolean {
+  getDownloaded(piece: number): Boolean {
     return !!(Number(this.downloaded[piece]));
   }
 }

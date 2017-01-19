@@ -8,7 +8,6 @@ const torrentEngine_1 = require("./Client/torrentEngine");
 const readJsonSync = require('read-json-sync');
 const writeJsonFile = require('write-json-file');
 const mkdirp = require('mkdirp');
-
 class Empire extends stream_1.Writable {
     constructor() {
         super();
@@ -36,6 +35,7 @@ class Empire extends stream_1.Writable {
         torrent['finished pieces'] = [];
         torrent['uploaded'] = 0;
         torrent['downloaded'] = 0;
+        torrent['bitfieldDL'] = '00';
         torrent['left'] = -1;
         let files = torrent['files'];
         files.forEach((folders) => {

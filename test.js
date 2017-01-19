@@ -51,9 +51,26 @@
 
 
 
-let x = ['1.4.2.5:2356','2.4.2.5:2356','3.4.2.5:2356','4.4.2.5:2356' ];
+// let x = ['1.4.2.5:2356','2.4.2.5:2356','3.4.2.5:2356','4.4.2.5:2356' ];
+//
+// let peer = x.shift().split(':');
+//
+// console.log(x);
+// console.log(peer);
 
-let peer = x.shift().split(':');
+// let x = ['a'];
+//
+// if (!x.length) {
+//   console.log('yay')
+// }
+
+
+var ppr = require('./modules/prep-piece-requests')(962416635, 1048576, 918, 872443);
+
+// const ppr = new PPR(962416635, 1048576, 918, 872443);
+let x = ppr.prepareRequest(0);
+
+
+//x = Buffer.concat(x);
 
 console.log(x);
-console.log(peer);

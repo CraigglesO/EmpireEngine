@@ -1,20 +1,39 @@
 import { createServer, connect, Socket } from 'net';
-import { EventEmitter } from 'events';
-import * as inherits from 'inherits';
-import { udpTracker, wssTracker } from './trackerClient';
-import Hose from './Hose';
-import parseTracker from '../modules/parse-p2p-tracker';
-import binaryBitfield from '../modules/binary-bitfield';
-import * as _ from 'lodash';
-import * as debug from 'debug';
+import { EventEmitter }                  from 'events';
+import * as inherits                     from 'inherits';
+import { udpTracker, wssTracker }        from './trackerClient';
+import Hose                              from './Hose';
+import parseTracker                      from '../modules/parse-p2p-tracker';
+import TPH                               from '../modules/torrent-piece-handler';
+import binaryBitfield                    from '../modules/binary-bitfield';
+import * as _                            from 'lodash';
+import * as debug                        from 'debug';
 debug('torrentEngine');
 
-const Bitfield = require("bitfield");
+interface PeerData {
+  bitfield:  string    // Pieces this peer has
+  index:     number    // Index of current piece project
+  piece:     number
+}
+
+interface Files {
+  path:   string
+  name:   string
+  length: number
+  offset: number
+}
+
+const PeerData = {
+  bitfield: '00',
+  index:    0,
+  piece:    0
+}
 
 const MAX_PEERS = 50;
 
 class torrentHandler extends EventEmitter {
-  _debugId:       number
+  _debugId:      number
+  finished:      Boolean
   torrent:       Object
   infoHash:      string
   uploaded:      number
@@ -24,7 +43,8 @@ class torrentHandler extends EventEmitter {
   trackers:      Object
   trackerData:   Object
   connectQueue:  Array<string>
-  bitfield:      Object | void
+  bitfield:      binaryBitfield
+  tph:           TPH
   peers:         any
   hoses:         any
   incomingPeers: any
@@ -36,6 +56,7 @@ class torrentHandler extends EventEmitter {
 
     self._debugId     = ~~((Math.random()*100000)+1);
 
+    self.finished      = false;
     self.torrent       = torrent;
     self.infoHash      = torrent.infoHash;
     self.uploaded      = torrent.uploaded;
@@ -47,7 +68,8 @@ class torrentHandler extends EventEmitter {
     self.peers         = {};
     self.hoses         = {};
     self.connectQueue  = [];
-    self.bitfield      = new binaryBitfield(torrent.pieces.length);
+    self.bitfield      = new binaryBitfield(torrent.pieces.length, torrent.bitfieldDL);
+    self.tph           = new TPH(torrent.files, torrent.length, torrent.pieceLength, torrent.pieces.length, torrent.lastPieceLength);
 
     // Trackers (WSS/UDP)
     self.torrent['announce'].forEach((tracker: string) => {
@@ -64,7 +86,7 @@ class torrentHandler extends EventEmitter {
         self.connectQueue = self.connectQueue.concat(p);
         self.connectQueue = _.uniq(self.connectQueue);  // MAYBE not do this, because reconnecting to an old peer might prove useful.
         //TODO: Create a queue action and emit an update above
-        self.sendConnectionRequests();
+        self.newConnectionRequests();
       });
 
       self.trackers[tracker].on('error', () => {
@@ -88,7 +110,7 @@ class torrentHandler extends EventEmitter {
           family = socket.remoteFamily,
           hose   = self.hoses[host] = new Hose(self.bitfield);
 
-      self.peers[host] = [port, family, hose, socket];
+      self.peers[host] = {port, family, hose, socket, bitfield: '00', index: 0};
       socket.pipe(hose).pipe(socket);
 
       self.peers[host].socket.on('close', () => {
@@ -101,10 +123,10 @@ class torrentHandler extends EventEmitter {
 
   }
 
-  sendConnectionRequests() {
+  newConnectionRequests() {
     const self = this;
     // Determine how much room we have to add peers and connect.
-    if (self.peers.length < MAX_PEERS && (self.connectQueue.length)) {
+    while (self.peers.length < MAX_PEERS && (self.connectQueue.length)) {
       let peer = self.connectQueue.shift().split(':');
       self.createPeer(peer[1], peer[0]);
     }
@@ -113,13 +135,88 @@ class torrentHandler extends EventEmitter {
   createPeer(port, host) {
     const self = this;
 
-    let peer = self.peers[host] = [port, 'ipv4', null, null];
-    peer[3] = connect(port, host);
+    let peer = self.peers[host] = {port, family: 'ipv4', hose: null, socket: null, bitfield: '00', index: 0, piece: 0 }; // [port, IPV-family, hose, socket, Bitfield]
+    peer.socket = connect(port, host);
 
-    peer[3].once('connect', () => {
-      let hose = self.peers[host][2] = new Hose();
-      peer[3].pipe(hose).pipe(peer[3]);
+    peer.socket.once('connect', () => {
+      let hose = self.peers[host].hose = new Hose();
+      peer['socket'].pipe(hose).pipe(peer['socket']);
     });
+
+    peer['hose'].on('bitfield', (payload) => {
+      // Find which pieces the user has that we do not:
+      peer.bitfield = payload;
+      self.bitfield.findNewPieces(payload, (result, downloading, which) => {
+        if (which !== (-1)) {
+          // Set the peers piece number and index of piece
+          peer.piece = which;
+          peer.index = self.tph.pieceIndex(which);
+          // Prepare a request for the pieces
+          self.tph.prepareRequest(which, (buf, count) => {
+            // Send to wire.
+            this._debug('send piece request %n', count);
+            peer['hose'].sendRequest(buf, count);
+          });
+        } else {
+          peer['hose'].sendNotInterested();
+          // TODO: Close the connection.
+        }
+      });
+    });
+
+    peer['hose'].on('finished_piece', (block: Buffer, hash: string) => {
+      this._debug('finished piece');
+      // TODO: Check the hash
+      // Place the buffer in its proper home
+      self.tph.saveBlock(peer.index, block);
+
+      let finished = self.bitfield.setDownloaded(peer.piece);
+
+      if (finished === 1) {
+        self.finished = true;
+        self.cleanupSeeders();
+      } else {
+        // Start a new request sequence
+        process.nextTick(() => {
+          self.bitfield.findNewPieces(peer.bitfield, (result: string, downloading: string, which: number) => {
+            if (which !== (-1)) {
+              // Set the peers piece number and index of piece
+              peer.piece = which;
+              peer.index = self.tph.pieceIndex(which);
+              // Prepare a request for the pieces
+              self.tph.prepareRequest(which, (buf: Buffer, count: number) => {
+                // Send to wire.
+                this._debug('send piece request %n', count);
+                peer['hose'].sendRequest(buf, count);
+              });
+            } else {
+              // TODO: Send a 00 00 00 00 to keep peer active.
+            }
+          });
+        });
+      }
+
+    });
+  }
+
+  cleanupSeeders() {
+    const self = this;
+    for (let host in self.peers) {
+      if ( self.bitfield.isSeeder(self.peers[host].bitfield) ) {
+        self.peers[host].socket.close();
+        self.peers[host].hose.close();
+        delete self.peers[host];
+      }
+    }
+  }
+
+  cleanupAll() {
+    const self = this;
+    for (let host in self.peers) {
+      self.peers[host].socket.close();
+      self.peers[host].hose.close();
+      delete self.peers[host];
+    }
   }
 
   _debug = function (...args: any[]) {

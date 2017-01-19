@@ -1,10 +1,10 @@
 'use strict';
 const stream_1 = require("stream");
 const buffer_1 = require("buffer");
+const crypto_1 = require("crypto");
 const debug = require("debug");
 debug('hose');
 const speedometer = require('speedometer');
-const Bitfield = require("bitfield");
 const BITFIELD_MAX_SIZE = 100000;
 const KEEP_ALIVE_TIMEOUT = 55000;
 const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]);
@@ -18,23 +18,27 @@ class Hose extends stream_1.Duplex {
         };
         if (!(this instanceof Hose))
             return new Hose(bitfield);
-        this._debugId = ~~((Math.random() * 100000) + 1);
-        this.destroyed = false;
-        this.sentHandshake = false;
-        this.uploadSpeed = speedometer();
-        this.downloadSpeed = speedometer();
-        this.bufferSize = 0;
-        this.streamStore = [];
-        this.parseSize = 0;
-        this.actionStore = null;
-        this.infoHash = '';
-        this.peerID = '';
-        this.choked = true;
-        this.interested = false;
-        this.bitfield = bitfield;
-        this.haveSuppression = false;
-        this.on('complete', this.destroy);
-        this.prepHandshake();
+        const self = this;
+        self._debugId = ~~((Math.random() * 100000) + 1);
+        self.destroyed = false;
+        self.sentHandshake = false;
+        self.uploadSpeed = speedometer();
+        self.downloadSpeed = speedometer();
+        self.bufferSize = 0;
+        self.streamStore = [];
+        self.parseSize = 0;
+        self.actionStore = null;
+        self.inRequests = [];
+        self.blocks = [];
+        self.blockCount = 0;
+        self.pieceHash = null;
+        self.infoHash = '';
+        self.peerID = '';
+        self.choked = true;
+        self.interested = false;
+        self.bitfield = bitfield;
+        self.haveSuppression = false;
+        self.prepHandshake();
     }
     prepHandshake() {
         this._nextAction(1, (payload) => {
@@ -49,9 +53,9 @@ class Hose extends stream_1.Duplex {
                 this.peerID = peerID.toString('hex');
                 if (pstr !== 'BitTorrent protocol')
                     return;
-                console.log('Protocol type: ', pstr);
-                console.log('infoHash:      ', this.infoHash);
-                console.log('peerId:        ', this.peerID);
+                this._debug('Protocol type: ', pstr);
+                this._debug('infoHash:      ', this.infoHash);
+                this._debug('peerId:        ', this.peerID);
                 this.emit('handshake', infoHash, peerID);
                 if (!this.sentHandshake)
                     this.sendHandshake();
@@ -100,12 +104,23 @@ class Hose extends stream_1.Duplex {
         console.log('giving handshake back..');
         this._push(buffer_1.Buffer.concat([PROTOCOL, RESERVED, infoHashBuffer, peerIDbuffer]));
     }
-    sendInterested() {
-        this._debug('send interested');
-        this._push(INTERESTED);
-    }
-    sendUnInterested() {
+    sendNotInterested() {
         this._push(UNINTERESTED);
+    }
+    sendHave() {
+    }
+    sendBitfield(bitfield) {
+        this._push(buffer_1.Buffer.concat([BITFIELD, bitfield]));
+    }
+    sendRequest(buf, count) {
+        const self = this;
+        self.blockCount = count;
+        self.pieceHash = crypto_1.createHash('sha1');
+        this._push(buf);
+    }
+    sendPiece() {
+    }
+    sendCancel() {
     }
     _nextAction(length, action) {
         this.parseSize = length;
@@ -117,12 +132,24 @@ class Hose extends stream_1.Duplex {
             this.emit('have', pieceIndex);
     }
     _onBitfield(payload) {
-        this.bitfield = new Bitfield(payload);
-        this.emit('bitfield', this.bitfield);
+        this.emit('bitfield', payload);
     }
     _onRequest(index, begin, length) {
+        const self = this;
+        while (!self.inRequests.length) {
+            process.nextTick(() => {
+            });
+        }
     }
     _onPiece(index, begin, block) {
+        const self = this;
+        process.nextTick(() => {
+            self.blockCount--;
+            self.pieceHash.update(block);
+            self.blocks.push(block);
+            if (!self.blockCount)
+                self.emit('finished_piece', buffer_1.Buffer.concat(self.blocks), self.pieceHash.digest('hex'));
+        });
     }
     _onCancel(index, begin, length) {
     }
@@ -138,7 +165,7 @@ class Hose extends stream_1.Duplex {
                 break;
             case 1:
                 self._debug('got unchoke');
-                if (self.choked === false) {
+                if (!self.choked) {
                 }
                 else {
                     self.choked = false;
@@ -188,7 +215,8 @@ class Hose extends stream_1.Duplex {
     setHaveSuppression() {
         this.haveSuppression = true;
     }
-    destroy() {
+    close() {
+        this.isActive = false;
     }
 }
 Object.defineProperty(exports, "__esModule", { value: true });

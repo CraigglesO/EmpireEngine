@@ -50,9 +50,10 @@ class Empire extends Writable {
       return;
     }
     torrent['finished pieces'] = [];
-    torrent['uploaded'] = 0;
-    torrent['downloaded'] = 0;
-    torrent['left'] = -1; // This lets the torrentEngine know it's a new torrent
+    torrent['uploaded']        = 0;
+    torrent['downloaded']      = 0;
+    torrent['bitfieldDL']      = '00';
+    torrent['left']            = -1; // This lets the torrentEngine know it's a new torrent
     // Create the folders and files:
     let files = torrent['files'];
     files.forEach((folders) => {
@@ -61,7 +62,7 @@ class Empire extends Writable {
       let fileName = folders.splice(-1);
       folders = folders.join('/');
       mkdirp(folders, function (err) {
-        if (err) console.error(err)
+        if (err) console.error(err);
         else fs.writeFileSync(folders + '/' + fileName,'');
       });
     });
