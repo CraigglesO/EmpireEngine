@@ -1,6 +1,6 @@
 {
   "name": "empirejs",
-  "version": "0.1.27",
+  "version": "0.2.13",
   "description": "Let's build a connected world together",
   "main": "index.js",
   "scripts": {
