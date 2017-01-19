@@ -24,7 +24,7 @@ const PROTOCOL     = Buffer.from('\u0013BitTorrent protocol'),
       UNINTERESTED = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]),
       HAVE         = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]),
       BITFIELD     = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]),
-      REQUEST      = Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), // Requests are 2 code and 3 32 bit integers
+      REQUEST      = Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), // Requests are 1 code and 3 32 bit integers
       PIECE        = Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), // Pieces are 1 code and 2 16 bit integers and then the piece...
       CANCEL       = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]);
 
@@ -48,12 +48,12 @@ class Hose extends Duplex {
   interested:      Boolean
   isActive:        Boolean
   bitfield:        any
-  haveSuppression: Boolean
+  busy:            Boolean
 
-  constructor (bitfield?: any) {
+  constructor (infoHash: string, peerID: string, bitfield?: any) {
     super();
     if (!(this instanceof Hose))
-      return new Hose(bitfield);
+      return new Hose(infoHash, peerID, bitfield);
 
     const self = this;
 
@@ -72,12 +72,12 @@ class Hose extends Duplex {
     self.blockCount      = 0;
     self.pieceHash       = null;
 
-    self.infoHash        = '';
-    self.peerID          = '';
+    self.infoHash        = infoHash;
+    self.peerID          = peerID;
     self.choked          = true;
     self.interested      = false;
     self.bitfield        = bitfield;
-    self.haveSuppression = false;
+    self.busy            = false;
 
     self.prepHandshake();
   }
@@ -88,7 +88,6 @@ class Hose extends Duplex {
       let pstrlen = payload.readUInt8(0);
       this._nextAction(pstrlen + 48, (payload) => {
         // Prepare all information
-        console.log('payload');
         let pstr          = payload.slice(0, pstrlen),   // Protocol Identifier utf-8 encoding
             reserved      = payload.slice(pstrlen, 8);   // These 8 bytes are reserved for future use
             pstr          = pstr.toString();             // Convert the Protocol to a string
@@ -138,7 +137,6 @@ class Hose extends Duplex {
     this._debug('new Data! %o');
     this.bufferSize += payload.length;             // Increase our buffer size count, we have more data
     this.streamStore.push(payload);                // Add the payload to our list of streams downloaded
-    console.log('bufferSize!: ', this.bufferSize);
     // Parse Size is always pre-recorded, because we know what to expect from peers
     while (this.bufferSize >= this.parseSize) {    // Wait until the package size fits the crime
       let buf = (this.streamStore.length > 1)      // Store our stream to a buffer to do the crime
@@ -161,24 +159,22 @@ class Hose extends Duplex {
     return this.push(payload);
   }
 
-  createHandshake(infoHash: string, peerID: string) {
-    this.infoHash = infoHash;
-    this.peerID = peerID;
-    this.sendHandshake();
-  }
-
   sendHandshake() {
     //TODO: check if infohash and peerID are already buffers
     this.sentHandshake = true;
     //convert infoHash and peerID to buffer
     let infoHashBuffer = Buffer.from(this.infoHash, 'hex'),
-        peerIDbuffer   = Buffer.from(this.peerID, 'hex');
-    console.log('giving handshake back..');
+        peerIDbuffer   = Buffer.from('2d4c54313030302d764874743153546a4d583043', 'hex');
+        // peerIDbuffer   = Buffer.from(this.peerID, 'hex');
     this._push(Buffer.concat([PROTOCOL, RESERVED, infoHashBuffer, peerIDbuffer]));
   }
 
   sendNotInterested() {
     this._push(UNINTERESTED);
+  }
+
+  sendInterested() {
+    this._push(Buffer.concat([INTERESTED, UNCHOKE]));
   }
 
   sendHave() {
@@ -193,9 +189,26 @@ class Hose extends Duplex {
     const self      = this;
     // Track how many incoming we are going to get:
     self.blockCount = count;
+    self.busy       = true;
     // Create a new hash to ensure authenticity
     self.pieceHash  = createHash('sha1');
     this._push(buf);
+  }
+
+  isBusy(): Boolean {
+    return this.busy;
+  }
+
+  setBusy() {
+    this.busy = true;
+  }
+
+  unsetBusy() {
+    this.busy = false;
+  }
+
+  isChoked(): Boolean {
+    return this.choked;
   }
 
   sendPiece() {
@@ -214,9 +227,7 @@ class Hose extends Duplex {
   }
 
   _onHave(pieceIndex) {
-    this.bitfield.set(pieceIndex, true);
-    if (!this.haveSuppression)
-      this.emit('have', pieceIndex);
+    this.emit('have', pieceIndex);
   }
 
   _onBitfield(payload) {
@@ -225,7 +236,7 @@ class Hose extends Duplex {
   }
 
   _onRequest(index, begin, length) {
-    const self = this;
+    const self      = this;
     // Iterate through requests...
     while (!self.inRequests.length) {
       process.nextTick(() => {
@@ -234,7 +245,7 @@ class Hose extends Duplex {
     }
   }
 
-  _onPiece(index, begin, block) {
+  _onPiece(index: number, begin: number, block: Buffer) {
     const self = this;
     process.nextTick(() => {
       self.blockCount--;
@@ -244,8 +255,10 @@ class Hose extends Duplex {
       self.blocks.push(block);
 
       // If we have all the blocks we need to make a piece send it up to torrentEngine:
-      if (!self.blockCount)
-        self.emit('finished_piece', Buffer.concat(self.blocks), self.pieceHash.digest('hex'));
+      if (!self.blockCount) {
+        self.emit('finished_piece', index, begin, Buffer.concat(self.blocks), self.pieceHash);
+        self.blocks = [];
+      }
     });
   }
 
@@ -255,8 +268,7 @@ class Hose extends Duplex {
 
   handleCode(payload: Buffer) {
     const self = this;
-    self.messageLength()                             // Prep for the next messageLength
-    console.log('debug message code and extra: ', payload);
+    self.messageLength()     // Prep for the next messageLength
     switch (payload[0]) {
       case 0:
         // Choke
@@ -322,10 +334,6 @@ class Hose extends Duplex {
   closeConnection() {
     this.isActive = false;
     this.emit('close');
-  }
-
-  setHaveSuppression() {
-    this.haveSuppression = true;
   }
 
   close() {

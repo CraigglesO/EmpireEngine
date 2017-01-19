@@ -41,7 +41,8 @@ class Empire extends Writable {
 
   importTorrentFile(file: string) {
     const self = this;
-    file = file.slice(0,file.length - 2);
+    // file = file.slice(0,file.length - 2);
+    file = file.trim();
     // Create the proper JSON:
     let torrent = decodeTorrentFile(file);
     // if file already exists, exist
@@ -49,14 +50,14 @@ class Empire extends Writable {
       self.emit('error', 'File already Exists');
       return;
     }
-    torrent['finished pieces'] = [];
     torrent['uploaded']        = 0;
     torrent['downloaded']      = 0;
     torrent['bitfieldDL']      = '00';
-    torrent['left']            = -1; // This lets the torrentEngine know it's a new torrent
+    torrent['left']            = (-1); // This lets the torrentEngine know it's a new torrent
     // Create the folders and files:
-    let files = torrent['files'];
-    files.forEach((folders) => {
+    torrent['files'] = torrent['files'].map((folders) => {
+      // TODO: Setup the proper location to download
+      let returnFolder = __dirname + '/' + self.downloadDirectory + '/' + folders.path;
       folders = './' + self.downloadDirectory + '/' + folders.path;
       folders = folders.split('/');
       let fileName = folders.splice(-1);
@@ -84,7 +85,7 @@ class Empire extends Writable {
       if (!self.torrents[torrent.infoHash])
         self.torrents[torrent.infoHash] = new torrentEngine(torrent);
 
-      // this.torrents[torrent.infoHash].on('killSwitch', () => { });
+        // this.torrents[torrent.infoHash].on('killSwitch', () => { });
     });
   }
 }

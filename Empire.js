@@ -26,19 +26,18 @@ class Empire extends stream_1.Writable {
     }
     importTorrentFile(file) {
         const self = this;
-        file = file.slice(0, file.length - 2);
+        file = file.trim();
         let torrent = parseTorrent_1.decodeTorrentFile(file);
         if (self.config['hashes'].indexOf(torrent['infoHash']) > -1) {
             self.emit('error', 'File already Exists');
             return;
         }
-        torrent['finished pieces'] = [];
         torrent['uploaded'] = 0;
         torrent['downloaded'] = 0;
         torrent['bitfieldDL'] = '00';
-        torrent['left'] = -1;
-        let files = torrent['files'];
-        files.forEach((folders) => {
+        torrent['left'] = (-1);
+        torrent['files'] = torrent['files'].map((folders) => {
+            let returnFolder = __dirname + '/' + self.downloadDirectory + '/' + folders.path;
             folders = './' + self.downloadDirectory + '/' + folders.path;
             folders = folders.split('/');
             let fileName = folders.splice(-1);

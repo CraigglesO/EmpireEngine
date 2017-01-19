@@ -9,7 +9,7 @@ const BITFIELD_MAX_SIZE = 100000;
 const KEEP_ALIVE_TIMEOUT = 55000;
 const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]);
 class Hose extends stream_1.Duplex {
-    constructor(bitfield) {
+    constructor(infoHash, peerID, bitfield) {
         super();
         this._debug = function (...args) {
             args = [].slice.call(arguments);
@@ -17,7 +17,7 @@ class Hose extends stream_1.Duplex {
             debug.apply(null, args);
         };
         if (!(this instanceof Hose))
-            return new Hose(bitfield);
+            return new Hose(infoHash, peerID, bitfield);
         const self = this;
         self._debugId = ~~((Math.random() * 100000) + 1);
         self.destroyed = false;
@@ -32,19 +32,18 @@ class Hose extends stream_1.Duplex {
         self.blocks = [];
         self.blockCount = 0;
         self.pieceHash = null;
-        self.infoHash = '';
-        self.peerID = '';
+        self.infoHash = infoHash;
+        self.peerID = peerID;
         self.choked = true;
         self.interested = false;
         self.bitfield = bitfield;
-        self.haveSuppression = false;
+        self.busy = false;
         self.prepHandshake();
     }
     prepHandshake() {
         this._nextAction(1, (payload) => {
             let pstrlen = payload.readUInt8(0);
             this._nextAction(pstrlen + 48, (payload) => {
-                console.log('payload');
                 let pstr = payload.slice(0, pstrlen), reserved = payload.slice(pstrlen, 8);
                 pstr = pstr.toString();
                 payload = payload.slice(pstrlen + 8);
@@ -77,7 +76,6 @@ class Hose extends stream_1.Duplex {
         this._debug('new Data! %o');
         this.bufferSize += payload.length;
         this.streamStore.push(payload);
-        console.log('bufferSize!: ', this.bufferSize);
         while (this.bufferSize >= this.parseSize) {
             let buf = (this.streamStore.length > 1)
                 ? buffer_1.Buffer.concat(this.streamStore)
@@ -93,19 +91,16 @@ class Hose extends stream_1.Duplex {
     _push(payload) {
         return this.push(payload);
     }
-    createHandshake(infoHash, peerID) {
-        this.infoHash = infoHash;
-        this.peerID = peerID;
-        this.sendHandshake();
-    }
     sendHandshake() {
         this.sentHandshake = true;
-        let infoHashBuffer = buffer_1.Buffer.from(this.infoHash, 'hex'), peerIDbuffer = buffer_1.Buffer.from(this.peerID, 'hex');
-        console.log('giving handshake back..');
+        let infoHashBuffer = buffer_1.Buffer.from(this.infoHash, 'hex'), peerIDbuffer = buffer_1.Buffer.from('2d4c54313030302d764874743153546a4d583043', 'hex');
         this._push(buffer_1.Buffer.concat([PROTOCOL, RESERVED, infoHashBuffer, peerIDbuffer]));
     }
     sendNotInterested() {
         this._push(UNINTERESTED);
+    }
+    sendInterested() {
+        this._push(buffer_1.Buffer.concat([INTERESTED, UNCHOKE]));
     }
     sendHave() {
     }
@@ -115,8 +110,21 @@ class Hose extends stream_1.Duplex {
     sendRequest(buf, count) {
         const self = this;
         self.blockCount = count;
+        self.busy = true;
         self.pieceHash = crypto_1.createHash('sha1');
         this._push(buf);
+    }
+    isBusy() {
+        return this.busy;
+    }
+    setBusy() {
+        this.busy = true;
+    }
+    unsetBusy() {
+        this.busy = false;
+    }
+    isChoked() {
+        return this.choked;
     }
     sendPiece() {
     }
@@ -127,9 +135,7 @@ class Hose extends stream_1.Duplex {
         this.actionStore = action;
     }
     _onHave(pieceIndex) {
-        this.bitfield.set(pieceIndex, true);
-        if (!this.haveSuppression)
-            this.emit('have', pieceIndex);
+        this.emit('have', pieceIndex);
     }
     _onBitfield(payload) {
         this.emit('bitfield', payload);
@@ -147,8 +153,10 @@ class Hose extends stream_1.Duplex {
             self.blockCount--;
             self.pieceHash.update(block);
             self.blocks.push(block);
-            if (!self.blockCount)
-                self.emit('finished_piece', buffer_1.Buffer.concat(self.blocks), self.pieceHash.digest('hex'));
+            if (!self.blockCount) {
+                self.emit('finished_piece', index, begin, buffer_1.Buffer.concat(self.blocks), self.pieceHash);
+                self.blocks = [];
+            }
         });
     }
     _onCancel(index, begin, length) {
@@ -156,7 +164,6 @@ class Hose extends stream_1.Duplex {
     handleCode(payload) {
         const self = this;
         self.messageLength();
-        console.log('debug message code and extra: ', payload);
         switch (payload[0]) {
             case 0:
                 self._debug('got choke');
@@ -211,9 +218,6 @@ class Hose extends stream_1.Duplex {
     closeConnection() {
         this.isActive = false;
         this.emit('close');
-    }
-    setHaveSuppression() {
-        this.haveSuppression = true;
     }
     close() {
         this.isActive = false;

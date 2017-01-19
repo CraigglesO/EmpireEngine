@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import { openSync, writeSync } from 'fs';
+import { openSync, writeSync, writeFileSync } from 'fs';
 
 interface Files {
   path:   string
@@ -96,14 +96,17 @@ class TPH {
           buf = buf.slice(newBufferLength);
           index += newBufferLength;
         }
-        var f = openSync('./'+file.path, 'r+');
+        var f = openSync(file.path, 'r+');
         try {
           if (!bufW) {
             writeSync(f, buf, 0, buf.length, offset);
           } else {
             writeSync(f, bufW, 0, bufW.length, offset);
           }
-        } catch (e) { return false; }
+        } catch (e) {
+          writeFileSync('./debug.txt', 'problem writing...');
+          return false;
+        }
       }
     });
     return true;

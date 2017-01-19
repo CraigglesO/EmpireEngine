@@ -70,7 +70,7 @@ class TPH {
                     buf = buf.slice(newBufferLength);
                     index += newBufferLength;
                 }
-                var f = fs_1.openSync('./' + file.path, 'r+');
+                var f = fs_1.openSync(file.path, 'r+');
                 try {
                     if (!bufW) {
                         fs_1.writeSync(f, buf, 0, buf.length, offset);
@@ -80,6 +80,7 @@ class TPH {
                     }
                 }
                 catch (e) {
+                    fs_1.writeFileSync('./debug.txt', 'problem writing...');
                     return false;
                 }
             }

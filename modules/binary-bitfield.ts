@@ -49,7 +49,7 @@ class binaryBitfield {
   pieces:        number
   bitfield:      string
   downloaded:    string
-  downloading:    string
+  downloading:   string
   totalBitfield: string
   percent:       number
   constructor (pieces: number | string | Buffer, downloaded?: number | string | Buffer) {
@@ -219,6 +219,19 @@ class binaryBitfield {
       self.totalBitfield = add2total;
       cb(result, self.downloading, which);
     });
+  }
+
+  onHave(piece: number, bitfield: string | Buffer): string {
+    const self = this;
+    if (Buffer.isBuffer(bitfield))
+      bitfield = bitfield.toString('hex');
+    // Set the number into the bitfield and return;
+    let bf = self.hex2binary(bitfield);
+    bf = bf.slice(0, piece) + '1' + bf.slice(piece +1);
+    let hex = self.binary2hex(bf);
+
+    // Return a string with the new bitfield size
+    return hex;
   }
 
   set(piece: number, b?: Boolean) {

@@ -194,6 +194,15 @@ class binaryBitfield {
             cb(result, self.downloading, which);
         });
     }
+    onHave(piece, bitfield) {
+        const self = this;
+        if (buffer_1.Buffer.isBuffer(bitfield))
+            bitfield = bitfield.toString('hex');
+        let bf = self.hex2binary(bitfield);
+        bf = bf.slice(0, piece) + '1' + bf.slice(piece + 1);
+        let hex = self.binary2hex(bf);
+        return hex;
+    }
     set(piece, b) {
         if (b || arguments.length === 1)
             this.downloading = this.downloading.slice(0, piece) + '1' + this.downloading.slice(piece + 1);
