@@ -4,6 +4,7 @@ import * as debug from 'debug';
 debug('Empire');
 
 import { decodeTorrentFile, decodeTorrent, encodeTorrent } from './modules/parseTorrent';
+import { parseMagnet, encodeMagnet } from './modules/parse-magnet-uri';
 import torrentEngine from './Client/torrentEngine';
 
 const readJsonSync = require('read-json-sync');
@@ -43,8 +44,19 @@ class Empire extends Writable {
     const self = this;
     // file = file.slice(0,file.length - 2);
     file = file.trim();
-    // Create the proper JSON:
-    let torrent = decodeTorrentFile(file);
+    // If Magnet file, parse it:
+    let torrent = null;
+    if (file.indexOf('magnet') > -1) {
+      torrent = parseMagnet(file);
+    } else {
+      // Create the proper JSON:
+      torrent = decodeTorrentFile(file);
+    }
+    // Sanity check
+    if (!torrent['infoHash']) {
+      console.log('Error, bad file');
+      return;
+    }
     // if file already exists, exist
     if (self.config['hashes'].indexOf(torrent['infoHash']) > -1) {
       self.emit('error', 'File already Exists');
@@ -53,20 +65,23 @@ class Empire extends Writable {
     torrent['uploaded']        = 0;
     torrent['downloaded']      = 0;
     torrent['bitfieldDL']      = '00';
-    torrent['left']            = torrent['length'];
+    torrent['left']            = torrent['length'] || (-1);
     // Create the folders and files:
-    torrent['files'] = torrent['files'].map((folders) => {
-      // TODO: Setup the proper location to download
-      let returnFolder = __dirname + '/' + self.downloadDirectory + '/' + folders.path;
-      folders = './' + self.downloadDirectory + '/' + folders.path;
-      folders = folders.split('/');
-      let fileName = folders.splice(-1);
-      folders = folders.join('/');
-      mkdirp(folders, function (err) {
-        if (err) console.error(err);
-        else fs.writeFileSync(folders + '/' + fileName,'');
+    if (torrent['files']) {
+      torrent['files'] = torrent['files'].map((file) => {
+        // TODO: Setup the proper location to download
+        let folders = __dirname + '/' + self.downloadDirectory + '/' + file.path;
+        let f = folders.split('/');
+        let fileName = f.splice(-1);
+        folders = f.join('/');
+        mkdirp(folders, function (err) {
+          if (err) console.error(err);
+          else fs.writeFileSync(folders + '/' + fileName, new Buffer(file.length));
+        });
+        file.path = folders + '/' + fileName
+        return file;
       });
-    });
+    }
     // Update to our config
     self.config['torrents'].push(torrent);
     self.config['hashes'].push(torrent['infoHash']);

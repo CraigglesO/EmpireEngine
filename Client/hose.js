@@ -9,7 +9,7 @@ const speedometer = require('speedometer');
 const bencode = require('bencode');
 const BITFIELD_MAX_SIZE = 100000;
 const KEEP_ALIVE_TIMEOUT = 55000;
-const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]), EXTENDED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x20]), UT_PEX = 1, UT_METADATA = 2;
+const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]), EXTENDED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]), UT_PEX = 1, UT_METADATA = 2;
 class Hose extends stream_1.Duplex {
     constructor(infoHash, peerID) {
         super();
@@ -40,7 +40,6 @@ class Hose extends stream_1.Duplex {
         self.interested = false;
         self.busy = false;
         self.ext = {};
-        self.getMetaData = false;
         self.prepHandshake();
     }
     prepHandshake() {
@@ -92,6 +91,7 @@ class Hose extends stream_1.Duplex {
         next(null);
     }
     _push(payload) {
+        console.log('payload!: ', payload);
         return this.push(payload);
     }
     sendKeepActive() {
@@ -145,6 +145,7 @@ class Hose extends stream_1.Duplex {
     }
     _onPiece(index, begin, block) {
         const self = this;
+        console.log('PIECE: ');
         process.nextTick(() => {
             self.blockCount--;
             self.pieceHash.update(block);
@@ -161,46 +162,47 @@ class Hose extends stream_1.Duplex {
         const self = this;
         if (extensionID === 0) {
             let obj = bencode.decode(payload);
+            console.log(obj);
             let m = obj.m;
             if (m['ut_metadata']) {
-                self.ext[m['ut_metadata']] = new ut_extensions_1.utMetadata(obj.metadata_size, self.infoHash);
+                self.ext[UT_METADATA] = new ut_extensions_1.utMetadata(obj.metadata_size, self.infoHash);
                 self.ext['ut_metadata'] = m['ut_metadata'];
-                self.ext[m['ut_metadata']].on('next', (piece) => {
-                    let request = { "msg_type": 0, "piece": piece }, prepRequest = EXTENDED, requestEn = bencode.encode(request);
+                self.ext[UT_METADATA].on('next', (piece) => {
+                    let request = { "msg_type": 0, "piece": piece }, prepRequest = EXTENDED, requestEn = bencode.encode(request), code = new buffer_1.Buffer(1);
                     prepRequest.writeUInt32BE(requestEn.length + 2, 0);
-                    let requestBuf = buffer_1.Buffer.concat([prepRequest, buffer_1.Buffer.from(self.ext['ut_metadata']), requestEn]);
+                    code.writeUInt8(self.ext['ut_metadata'], 0);
+                    let requestBuf = buffer_1.Buffer.concat([prepRequest, code, requestEn]);
                     this._push(requestBuf);
                 });
-                self.ext[m['ut_metadata']].on('metadata', (torrent) => {
+                self.ext[UT_METADATA].on('metadata', (torrent) => {
                     self.emit('metadata', torrent);
                 });
             }
             if (m['ut_pex']) {
-                self.ext[m['ut_pex']] = new ut_extensions_1.utPex();
+                self.ext[UT_PEX] = new ut_extensions_1.utPex();
                 self.ext['ut_pex'] = m['ut_pex'];
             }
         }
         else {
+            console.log('extensionID', extensionID);
             self.ext[extensionID]._message(payload);
         }
     }
     metaDataRequest() {
+        console.log('sending a metaData Request');
         const self = this;
-        if (self.ext['ut_metadata'] && !self.getMetaData) {
-            self.getMetaData = true;
+        if (self.ext['ut_metadata']) {
             let handshake = { 'm': { 'ut_metadata': UT_METADATA } }, prepHandshake = EXTENDED, handshakeEn = bencode.encode(handshake);
             prepHandshake.writeUInt32BE(handshakeEn.length + 2, 0);
             let handshakeBuf = buffer_1.Buffer.concat([prepHandshake, buffer_1.Buffer.from([0x00]), handshakeEn]);
+            console.log(handshakeBuf);
             this._push(handshakeBuf);
-            let request = { "msg_type": 0, "piece": 0 }, prepRequest = EXTENDED, requestEn = bencode.encode(request);
+            let request = { "msg_type": 0, "piece": 0 }, prepRequest = EXTENDED, requestEn = bencode.encode(request), code = new buffer_1.Buffer(1);
             prepRequest.writeUInt32BE(requestEn.length + 2, 0);
-            let requestBuf = buffer_1.Buffer.concat([prepRequest, buffer_1.Buffer.from(self.ext['ut_metadata']), requestEn]);
-            this._push(handshakeBuf);
-        }
-    }
-    pexRequest() {
-        const self = this;
-        if (self.ext['ut_pex']) {
+            code.writeUInt8(self.ext['ut_metadata'], 0);
+            let requestBuf = buffer_1.Buffer.concat([prepRequest, code, requestEn]);
+            console.log(requestBuf);
+            this._push(requestBuf);
         }
     }
     handleCode(payload) {
@@ -277,8 +279,8 @@ class Hose extends stream_1.Duplex {
         this.emit('close');
     }
     removeMeta() {
-        this.ext[this.ext['ut_metadata']] = null;
-        delete this.ext[this.ext['ut_metadata']];
+        this.ext[UT_METADATA] = null;
+        delete this.ext[UT_METADATA];
     }
     close() {
     }

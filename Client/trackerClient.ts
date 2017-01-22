@@ -143,7 +143,7 @@ class udpTracker extends EventEmitter {
       buf.writeUInt32BE(ACTION_ANNOUNCE, 8);      //   8    32-bit integer  action          1 // announce
       buf.writeUInt32BE(self.TRANSACTION_ID, 12); //   12   32-bit integer  transaction_id
       buf.write(self.HASH, 16, 20, 'hex');        //   16   20-byte string  info_hash
-      buf.write('empire', 36, 20);                //   36   20-byte string  peer_id
+      buf.write('-EM0012-ABCDEFGHIJKL', 36, 20);  //   36   20-byte string  peer_id
       writeUInt64BE(buf, self.DOWNLOADED, 56);    //   56   64-bit integer  downloaded
       writeUInt64BE(buf, self.LEFT, 64);          //   64   64-bit integer  left
       writeUInt64BE(buf, self.UPLOADED, 72);      //   72   64-bit integer  uploaded

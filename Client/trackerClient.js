@@ -90,7 +90,7 @@ class udpTracker extends events_1.EventEmitter {
             buf.writeUInt32BE(ACTION_ANNOUNCE, 8);
             buf.writeUInt32BE(self.TRANSACTION_ID, 12);
             buf.write(self.HASH, 16, 20, 'hex');
-            buf.write('empire', 36, 20);
+            buf.write('-EM0012-ABCDEFGHIJKL', 36, 20);
             writeUInt64BE(buf, self.DOWNLOADED, 56);
             writeUInt64BE(buf, self.LEFT, 64);
             writeUInt64BE(buf, self.UPLOADED, 72);

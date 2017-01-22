@@ -29,9 +29,14 @@ const PROTOCOL     = Buffer.from('\u0013BitTorrent protocol'),
       REQUEST      = Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), // Requests are 1 code and 3 32 bit integers
       PIECE        = Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), // Pieces are 1 code and 2 16 bit integers and then the piece...
       CANCEL       = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]),
-      EXTENDED     = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x20]),
+      EXTENDED     = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]),
       UT_PEX       = 1,
       UT_METADATA  = 2;
+
+interface Extension {
+  'ut_pex':      number
+  'ut_metadata': number
+}
 
 class Hose extends Duplex {
   _debugId:        number
@@ -53,8 +58,7 @@ class Hose extends Duplex {
   interested:      Boolean
   isActive:        Boolean
   busy:            Boolean
-  ext:             any
-  getMetaData:     Boolean
+  ext:             Extension
 
   constructor (infoHash: string, peerID: string) {
     super();
@@ -84,7 +88,6 @@ class Hose extends Duplex {
     self.interested      = false;
     self.busy            = false;
     self.ext             = {};
-    self.getMetaData     = false;
 
     self.prepHandshake();
   }
@@ -163,6 +166,7 @@ class Hose extends Duplex {
 
   _push(payload: Buffer) {
     // TODO: upate keep alive timer here.
+    console.log('payload!: ', payload);
     return this.push(payload);
   }
   // keep-alive: <len=0000>
@@ -245,13 +249,13 @@ class Hose extends Duplex {
   // piece: <len=0009+X><id=7><index><begin><block>
   _onPiece(index: number, begin: number, block: Buffer) {
     const self = this;
+    console.log('PIECE: ')
     process.nextTick(() => {
       self.blockCount--;
       // Update hash:
       self.pieceHash.update(block);
       // Commit piece to total. We wait to concat the buffers due to speed concerns
       self.blocks.push(block);
-
       // If we have all the blocks we need to make a piece send it up to torrentEngine:
       if (!self.blockCount) {
         self.emit('finished_piece', index, begin, Buffer.concat(self.blocks), self.pieceHash);
@@ -269,67 +273,75 @@ class Hose extends Duplex {
     if (extensionID === 0) {
       // Handle the extension handshake:
       let obj = bencode.decode(payload);
+      console.log(obj);
       let m = obj.m;
       if (m['ut_metadata']) {
         // Handle the ut_metadata protocol here:
-        self.ext[m['ut_metadata']] = new utMetadata(obj.metadata_size, self.infoHash);
-        self.ext['ut_metadata']    = m['ut_metadata'];
+        self.ext[UT_METADATA]   = new utMetadata(obj.metadata_size, self.infoHash);
+        self.ext['ut_metadata'] = m['ut_metadata'];
 
         // Prep emitter responces:
-        self.ext[m['ut_metadata']].on('next', (piece) => {
+        self.ext[UT_METADATA].on('next', (piece) => {
           // Ask the peer for the next piece
           let request       = { "msg_type": 0, "piece": piece },
               prepRequest   = EXTENDED,
-              requestEn     = bencode.encode(request);
+              requestEn     = bencode.encode(request),
+              code          = new Buffer(1);
           prepRequest.writeUInt32BE(requestEn.length + 2, 0);
-          let requestBuf = Buffer.concat([prepRequest, Buffer.from(self.ext['ut_metadata']), requestEn]);
+          code.writeUInt8(self.ext['ut_metadata'], 0);
+          let requestBuf = Buffer.concat([prepRequest, code, requestEn]);
           this._push(requestBuf);
         });
-        self.ext[m['ut_metadata']].on('metadata', (torrent) => {
+        self.ext[UT_METADATA].on('metadata', (torrent) => {
           // send up:
           self.emit('metadata', torrent);
         });
       }
       if (m['ut_pex']) {
         // Handle the PEX protocol here
-        self.ext[m['ut_pex']] = new utPex();
-        self.ext['ut_pex']    = m['ut_pex'];
+        self.ext[UT_PEX]   = new utPex();
+        self.ext['ut_pex'] = m['ut_pex'];
 
         // Prep emitter responces:
       }
     } else {
       // Handle the payload with the proper extension
+      console.log('extensionID', extensionID);
       self.ext[extensionID]._message(payload);
     }
   }
 
   metaDataRequest() {
+    console.log('sending a metaData Request')
     const self = this;
-    if (self.ext['ut_metadata'] && !self.getMetaData) {
-      self.getMetaData  = true;
+    if (self.ext['ut_metadata']) {
       // Prep and send a meta_data handshake:
       let handshake     = {'m': {'ut_metadata': UT_METADATA} },
           prepHandshake = EXTENDED,
           handshakeEn   = bencode.encode(handshake);
       prepHandshake.writeUInt32BE(handshakeEn.length + 2, 0);
       let handshakeBuf  = Buffer.concat([prepHandshake, Buffer.from([0x00]), handshakeEn]);
+      console.log(handshakeBuf);
       this._push(handshakeBuf);
       // Prep and send a meta_data request:
       let request       = { "msg_type": 0, "piece": 0 },
           prepRequest   = EXTENDED,
-          requestEn     = bencode.encode(request);
+          requestEn     = bencode.encode(request),
+          code          = new Buffer(1);
       prepRequest.writeUInt32BE(requestEn.length + 2, 0);
-      let requestBuf = Buffer.concat([prepRequest, Buffer.from(self.ext['ut_metadata']), requestEn]);
-      this._push(handshakeBuf);
+      code.writeUInt8(self.ext['ut_metadata'], 0);
+      let requestBuf = Buffer.concat([prepRequest, code, requestEn]);
+      console.log(requestBuf);
+      this._push(requestBuf);
     }
   }
 
-  pexRequest() {
-    const self = this;
-    if (self.ext['ut_pex']) {
-
-    }
-  }
+  // pexRequest() {
+  //   const self = this;
+  //   if (self.ext['ut_pex']) {
+  //
+  //   }
+  // }
 
   // HANDLE INCOMING MESSAGES HERE:
 
@@ -423,8 +435,8 @@ class Hose extends Duplex {
   }
 
   removeMeta() {
-    this.ext[ this.ext['ut_metadata'] ] = null;
-    delete this.ext[ this.ext['ut_metadata'] ];
+    this.ext[ UT_METADATA ] = null;
+    delete this.ext[ UT_METADATA ];
   }
 
   close() {

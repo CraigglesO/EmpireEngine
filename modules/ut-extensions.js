@@ -57,6 +57,7 @@ class utPex extends events_1.EventEmitter {
         if (!(this instanceof utPex))
             return new utPex();
     }
+    _message(payload) { return; }
     start() {
     }
     stop() {
@@ -98,10 +99,10 @@ function parseMetaData(data) {
         torrent.length = length;
     }
     else {
-        t.files = [{
+        torrent.files = [{
                 length: t.length,
-                path: t.name,
-                name: t.name,
+                path: torrent.name,
+                name: torrent.name,
                 offset: 0
             }];
         torrent.length = t.length;

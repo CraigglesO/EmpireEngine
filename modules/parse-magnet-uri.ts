@@ -11,7 +11,7 @@
 import { Buffer } from 'buffer';
 import { uniq }   from 'lodash';
 
-var base32 = require('thirty-two');
+const base32 = require('thirty-two');
 
 interface Magnet {
   xt:             string | Array<string> // xt (Exact Topic) – URN containing file hash
@@ -53,7 +53,10 @@ function parseMagnet(magnet: string): Magnet {
     if (param.substring(0,2) === 'xt') {
       result['xt'].push( param.slice(3) );
       if (param.substring(3,12) === 'urn:btih:') {
-        result['infoHash'] = base32.decode( param.slice(12) ).toString('hex');
+        if (/[A-Z]/.test(param))
+          result['infoHash'] = base32.decode( param.slice(12) ).toString('hex');
+        else
+          result['infoHash'] = param.slice(12);
       }
     } else if (param.substring(0,2) === 'xs') {
       result['xs'].push( urlDecode(param.slice(3)) );
