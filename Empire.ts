@@ -53,7 +53,7 @@ class Empire extends Writable {
     torrent['uploaded']        = 0;
     torrent['downloaded']      = 0;
     torrent['bitfieldDL']      = '00';
-    torrent['left']            = (-1); // This lets the torrentEngine know it's a new torrent
+    torrent['left']            = torrent['length'];
     // Create the folders and files:
     torrent['files'] = torrent['files'].map((folders) => {
       // TODO: Setup the proper location to download
@@ -73,6 +73,7 @@ class Empire extends Writable {
     writeJsonFile('./config.json', self.config);
     // Emit up and begin P2P:
     self.emit('addedTorrent', torrent);
+    self.handleTorrents();
   }
 
   createTorrent() {
@@ -88,6 +89,7 @@ class Empire extends Writable {
         // this.torrents[torrent.infoHash].on('killSwitch', () => { });
     });
   }
+
 }
 
 

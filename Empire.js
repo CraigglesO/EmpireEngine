@@ -35,7 +35,7 @@ class Empire extends stream_1.Writable {
         torrent['uploaded'] = 0;
         torrent['downloaded'] = 0;
         torrent['bitfieldDL'] = '00';
-        torrent['left'] = (-1);
+        torrent['left'] = torrent['length'];
         torrent['files'] = torrent['files'].map((folders) => {
             let returnFolder = __dirname + '/' + self.downloadDirectory + '/' + folders.path;
             folders = './' + self.downloadDirectory + '/' + folders.path;
@@ -53,6 +53,7 @@ class Empire extends stream_1.Writable {
         self.config['hashes'].push(torrent['infoHash']);
         writeJsonFile('./config.json', self.config);
         self.emit('addedTorrent', torrent);
+        self.handleTorrents();
     }
     createTorrent() {
     }

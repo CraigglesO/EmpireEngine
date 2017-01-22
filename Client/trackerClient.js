@@ -18,7 +18,6 @@ class udpTracker extends events_1.EventEmitter {
         self.EVENT = 0;
         console.log('Host: ', self.HOST);
         console.log('self.HASH: ', self.HASH);
-        console.log('self.HASH: ', self.HASH);
         console.log('self.MY_PORT: ', self.MY_PORT);
         console.log('self.EVENT: ', self.EVENT);
         self.SCRAPE = true;
@@ -138,20 +137,42 @@ class udpTracker extends events_1.EventEmitter {
             self.emit('error', errorResponce);
         }
     }
-    completed() {
-        const self = this;
-        self.EVENT = 1;
-        self.announce();
+    update(left, uploaded, downloaded, port) {
+        this.LEFT = left;
+        this.UPLOADED = uploaded;
+        this.DOWNLOADED = downloaded;
+        if (port)
+            this.PORT = port;
+        this.EVENT = 0;
+        this.announce();
     }
-    started() {
-        const self = this;
-        self.EVENT = 2;
-        self.announce();
+    completed(left, uploaded, downloaded, port) {
+        this.LEFT = left;
+        this.UPLOADED = uploaded;
+        this.DOWNLOADED = downloaded;
+        if (port)
+            this.PORT = port;
+        this.EVENT = 1;
+        this.announce();
     }
-    stopped() {
-        const self = this;
-        self.EVENT = 3;
-        self.announce();
+    start(left, uploaded, downloaded, port) {
+        this.LEFT = left;
+        this.UPLOADED = uploaded;
+        this.DOWNLOADED = downloaded;
+        if (port)
+            this.PORT = port;
+        this.EVENT = 2;
+        console.log('start (tracker)');
+        this.announce();
+    }
+    stop(left, uploaded, downloaded, port) {
+        this.LEFT = left;
+        this.UPLOADED = uploaded;
+        this.DOWNLOADED = downloaded;
+        if (port)
+            this.PORT = port;
+        this.EVENT = 3;
+        this.announce();
     }
     timeTillNextScrape() {
         const self = this;
