@@ -65,6 +65,7 @@ class Empire extends Writable {
     torrent['uploaded']        = 0;
     torrent['downloaded']      = 0;
     torrent['bitfieldDL']      = '00';
+    torrent['finished']        = false;
     torrent['left']            = torrent['length'] || (-1);
     // Create the folders and files:
     if (torrent['files']) {

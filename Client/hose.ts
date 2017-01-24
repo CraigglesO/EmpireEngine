@@ -30,12 +30,19 @@ const PROTOCOL     = Buffer.from('\u0013BitTorrent protocol'),
       PIECE        = Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), // Pieces are 1 code and 2 16 bit integers and then the piece...
       CANCEL       = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]),
       EXTENDED     = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]),
+      EXT_PROTOCOL = {'m': {'ut_metadata': 2} },
       UT_PEX       = 1,
       UT_METADATA  = 2;
 
 interface Extension {
   'ut_pex':      number
   'ut_metadata': number
+}
+
+interface Request {
+  index:  number
+  begin:  number
+  length: number
 }
 
 class Hose extends Duplex {
@@ -48,7 +55,7 @@ class Hose extends Duplex {
   actionStore:     Function
   uploadSpeed:     Function
   downloadSpeed:   Function
-  inRequests:      Array<Buffer>
+  inRequests:      Array<Request>
   blocks:          Array<Buffer>
   blockCount:      number
   pieceHash:       Hash | null
@@ -58,7 +65,8 @@ class Hose extends Duplex {
   interested:      Boolean
   isActive:        Boolean
   busy:            Boolean
-  ext:             Extension
+  reqBusy:         Boolean
+  ext:             Extension | Object
 
   constructor (infoHash: string, peerID: string) {
     super();
@@ -87,6 +95,7 @@ class Hose extends Duplex {
     self.choked          = true;
     self.interested      = false;
     self.busy            = false;
+    self.reqBusy         = false;
     self.ext             = {};
 
     self.prepHandshake();
@@ -110,30 +119,24 @@ class Hose extends Duplex {
         if (pstr !== 'BitTorrent protocol')
           return;
 
-        this._debug('Protocol type: ', pstr);
-        this._debug('infoHash:      ', this.infoHash);
-        this._debug('peerId:        ', this.peerID);
-
-        this.emit('handshake', infoHash, peerID);        // Let listeners know the peers requested infohash and ID
-
         // Send a handshake back if peer initiated the connection
         if (!this.sentHandshake)
-          this.sendHandshake();
+          this.emit('handshake', infoHash, peerID);      // Let listeners know the peers requested infohash and ID
 
         // Last but not least let's add a new action to the queue
-        this.messageLength();
+        this.nextAction();
       });
     });
   }
 
-  messageLength() {
+  nextAction() {
     // TODO: upate keep alive timer here.
     this._nextAction(4, (payload) => {
       let length = payload.readUInt32BE(0);          // Get the length of the payload.
       if (length > 0)
         this._nextAction(length, this.handleCode);      // Message length, next action is to parse the information provided
       else
-        this.messageLength();
+        this.nextAction();
     });
   }
 
@@ -144,7 +147,6 @@ class Hose extends Duplex {
   // Handling incoming messages with message length (this.parseSize)
   // and cueing up commands to handle the message (this.actionStore)
   _write(payload: Buffer, encoding?: string, next?: Function) {
-    this._debug('new Data! %o');
     this.bufferSize += payload.length;             // Increase our buffer size count, we have more data
     this.streamStore.push(payload);                // Add the payload to our list of streams downloaded
     // Parse Size is always pre-recorded, because we know what to expect from peers
@@ -166,7 +168,6 @@ class Hose extends Duplex {
 
   _push(payload: Buffer) {
     // TODO: upate keep alive timer here.
-    console.log('payload!: ', payload);
     return this.push(payload);
   }
   // keep-alive: <len=0000>
@@ -175,6 +176,7 @@ class Hose extends Duplex {
   }
   // handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
   sendHandshake() {
+    console.log('send handshake');
     //TODO: check if infohash and peerID are already buffers
     this.sentHandshake = true;
     //convert infoHash and peerID to buffer
@@ -190,31 +192,33 @@ class Hose extends Duplex {
   // interested: <len=0001><id=2>
   sendInterested() {
     this._push(Buffer.concat([INTERESTED, UNCHOKE]));
+    this.choked = false;
   }
   // have: <len=0005><id=4><piece index>
-  sendHave() {
-
+  sendHave(index: number) {
+    // TODO: Superseeding
   }
   // bitfield: <len=0001+X><id=5><bitfield>
-  sendBitfield(bitfield) {
+  sendBitfield(bitfield: string) {
     // update bitfield length param to bitfield size:
+    let bitfieldBuf = Buffer.from(bitfield, 'hex');
     let bf = BITFIELD;
-    bf.writeUInt32BE(bitfield.length + 1, 0);
-    this._push( Buffer.concat([bf, bitfield]) );
+    bf.writeUInt32BE(bitfieldBuf.length + 1, 0);
+    this._push( Buffer.concat([bf, bitfieldBuf]) );
   }
   // request: <len=0013><id=6><index><begin><length>
-  sendRequest(buf, count) {
+  sendRequest(payload: Buffer, count: number) {
     const self      = this;
     // Track how many incoming we are going to get:
     self.blockCount = count;
     self.busy       = true;
     // Create a new hash to ensure authenticity
     self.pieceHash  = createHash('sha1');
-    this._push(buf);
+    this._push(payload);
   }
   // piece: <len=0009+X><id=7><index><begin><block>
-  sendPiece() {
-
+  sendPiece(piece: Buffer) {
+    this._push(piece);
   }
   // cancel: <len=0013><id=8><index><begin><length>
   sendCancel() {
@@ -238,18 +242,13 @@ class Hose extends Duplex {
   }
   // request: <len=0013><id=6><index><begin><length>
   _onRequest(index, begin, length) {
-    const self      = this;
-    // Iterate through requests...
-    while (!self.inRequests.length) {
-      process.nextTick(() => {
-
-      });
-    }
+    // Add the request to the stack:
+    this.inRequests.push({index, begin, length});
+    this.emit('request');
   }
   // piece: <len=0009+X><id=7><index><begin><block>
   _onPiece(index: number, begin: number, block: Buffer) {
     const self = this;
-    console.log('PIECE: ')
     process.nextTick(() => {
       self.blockCount--;
       // Update hash:
@@ -267,13 +266,15 @@ class Hose extends Duplex {
   _onCancel(index, begin, length) {
 
   }
+
+  // EXTENSIONS GO HERE
+
   // extension: <len=0002+x><id=20><extID><payload>
   _onExtension(extensionID: number, payload: Buffer) {
     const self = this;
     if (extensionID === 0) {
       // Handle the extension handshake:
       let obj = bencode.decode(payload);
-      console.log(obj);
       let m = obj.m;
       if (m['ut_metadata']) {
         // Handle the ut_metadata protocol here:
@@ -306,23 +307,14 @@ class Hose extends Duplex {
       }
     } else {
       // Handle the payload with the proper extension
-      console.log('extensionID', extensionID);
       self.ext[extensionID]._message(payload);
     }
   }
 
   metaDataRequest() {
-    console.log('sending a metaData Request')
     const self = this;
     if (self.ext['ut_metadata']) {
-      // Prep and send a meta_data handshake:
-      let handshake     = {'m': {'ut_metadata': UT_METADATA} },
-          prepHandshake = EXTENDED,
-          handshakeEn   = bencode.encode(handshake);
-      prepHandshake.writeUInt32BE(handshakeEn.length + 2, 0);
-      let handshakeBuf  = Buffer.concat([prepHandshake, Buffer.from([0x00]), handshakeEn]);
-      console.log(handshakeBuf);
-      this._push(handshakeBuf);
+      self.metaDataHandshake();
       // Prep and send a meta_data request:
       let request       = { "msg_type": 0, "piece": 0 },
           prepRequest   = EXTENDED,
@@ -331,23 +323,26 @@ class Hose extends Duplex {
       prepRequest.writeUInt32BE(requestEn.length + 2, 0);
       code.writeUInt8(self.ext['ut_metadata'], 0);
       let requestBuf = Buffer.concat([prepRequest, code, requestEn]);
-      console.log(requestBuf);
       this._push(requestBuf);
     }
   }
 
-  // pexRequest() {
-  //   const self = this;
-  //   if (self.ext['ut_pex']) {
-  //
-  //   }
-  // }
+  metaDataHandshake() {
+    // Prep and send a meta_data handshake:
+    let handshake     = EXT_PROTOCOL,
+        prepHandshake = EXTENDED,
+        handshakeEn   = bencode.encode(handshake);
+    prepHandshake.writeUInt32BE(handshakeEn.length + 2, 0);
+    let handshakeBuf  = Buffer.concat([prepHandshake, Buffer.from([0x00]), handshakeEn]);
+    this._push(handshakeBuf);
+  }
 
   // HANDLE INCOMING MESSAGES HERE:
 
   handleCode(payload: Buffer) {
     const self = this;
-    self.messageLength()     // Prep for the next messageLength
+    console.log('case: ',payload[0])
+    self.nextAction()     // Prep for the next nextAction
     switch (payload[0]) {
       case 0:
         // Choke
@@ -373,13 +368,13 @@ class Hose extends Duplex {
         self._push(Buffer.concat([INTERESTED, UNCHOKE]));
         break;
       case 3:
-        // Not INTERESTED
-        self._debug('got uninterested');
+        // Not Interested
+        self._debug('peer is uninterested');
         self.closeConnection();
         break;
       case 4:
         // Have
-        self._debug('got have');
+        self._debug('peer sent have');
         self._onHave(payload.readUInt32BE(1));
         break;
       case 5:

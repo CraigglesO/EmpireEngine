@@ -31,6 +31,7 @@ class udpTracker extends EventEmitter {
   TIMEOUTS_DATE:  number
   TIMEOUT_N:      number
   server:         any
+
   constructor(trackerHost: string, port: number, myPort: number, infoHash: string) {
     super();
     if (!(this instanceof udpTracker))
@@ -43,11 +44,6 @@ class udpTracker extends EventEmitter {
     self.MY_PORT = myPort;
     self.TRANSACTION_ID = null; // This will be our method of keeping track of new connections...
     self.EVENT = 0;
-
-    console.log('Host: ', self.HOST);
-    console.log('self.HASH: ', self.HASH);
-    console.log('self.MY_PORT: ', self.MY_PORT);
-    console.log('self.EVENT: ', self.EVENT);
 
     //avoid scraping unless it's a timed update
     self.SCRAPE = true;

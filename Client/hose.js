@@ -9,7 +9,7 @@ const speedometer = require('speedometer');
 const bencode = require('bencode');
 const BITFIELD_MAX_SIZE = 100000;
 const KEEP_ALIVE_TIMEOUT = 55000;
-const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]), EXTENDED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]), UT_PEX = 1, UT_METADATA = 2;
+const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]), EXTENDED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]), EXT_PROTOCOL = { 'm': { 'ut_metadata': 2 } }, UT_PEX = 1, UT_METADATA = 2;
 class Hose extends stream_1.Duplex {
     constructor(infoHash, peerID) {
         super();
@@ -39,6 +39,7 @@ class Hose extends stream_1.Duplex {
         self.choked = true;
         self.interested = false;
         self.busy = false;
+        self.reqBusy = false;
         self.ext = {};
         self.prepHandshake();
     }
@@ -54,28 +55,23 @@ class Hose extends stream_1.Duplex {
                 this.peerID = peerID.toString('hex');
                 if (pstr !== 'BitTorrent protocol')
                     return;
-                this._debug('Protocol type: ', pstr);
-                this._debug('infoHash:      ', this.infoHash);
-                this._debug('peerId:        ', this.peerID);
-                this.emit('handshake', infoHash, peerID);
                 if (!this.sentHandshake)
-                    this.sendHandshake();
-                this.messageLength();
+                    this.emit('handshake', infoHash, peerID);
+                this.nextAction();
             });
         });
     }
-    messageLength() {
+    nextAction() {
         this._nextAction(4, (payload) => {
             let length = payload.readUInt32BE(0);
             if (length > 0)
                 this._nextAction(length, this.handleCode);
             else
-                this.messageLength();
+                this.nextAction();
         });
     }
     _read() { }
     _write(payload, encoding, next) {
-        this._debug('new Data! %o');
         this.bufferSize += payload.length;
         this.streamStore.push(payload);
         while (this.bufferSize >= this.parseSize) {
@@ -91,13 +87,13 @@ class Hose extends stream_1.Duplex {
         next(null);
     }
     _push(payload) {
-        console.log('payload!: ', payload);
         return this.push(payload);
     }
     sendKeepActive() {
         this._push(KEEP_ALIVE);
     }
     sendHandshake() {
+        console.log('send handshake');
         this.sentHandshake = true;
         let infoHashBuffer = buffer_1.Buffer.from(this.infoHash, 'hex'), peerIDbuffer = buffer_1.Buffer.from('2d4c54313030302d764874743153546a4d583043', 'hex');
         this._push(buffer_1.Buffer.concat([PROTOCOL, RESERVED, infoHashBuffer, peerIDbuffer]));
@@ -107,22 +103,25 @@ class Hose extends stream_1.Duplex {
     }
     sendInterested() {
         this._push(buffer_1.Buffer.concat([INTERESTED, UNCHOKE]));
+        this.choked = false;
     }
-    sendHave() {
+    sendHave(index) {
     }
     sendBitfield(bitfield) {
+        let bitfieldBuf = buffer_1.Buffer.from(bitfield, 'hex');
         let bf = BITFIELD;
-        bf.writeUInt32BE(bitfield.length + 1, 0);
-        this._push(buffer_1.Buffer.concat([bf, bitfield]));
+        bf.writeUInt32BE(bitfieldBuf.length + 1, 0);
+        this._push(buffer_1.Buffer.concat([bf, bitfieldBuf]));
     }
-    sendRequest(buf, count) {
+    sendRequest(payload, count) {
         const self = this;
         self.blockCount = count;
         self.busy = true;
         self.pieceHash = crypto_1.createHash('sha1');
-        this._push(buf);
+        this._push(payload);
     }
-    sendPiece() {
+    sendPiece(piece) {
+        this._push(piece);
     }
     sendCancel() {
     }
@@ -137,15 +136,11 @@ class Hose extends stream_1.Duplex {
         this.emit('bitfield', payload);
     }
     _onRequest(index, begin, length) {
-        const self = this;
-        while (!self.inRequests.length) {
-            process.nextTick(() => {
-            });
-        }
+        this.inRequests.push({ index, begin, length });
+        this.emit('request');
     }
     _onPiece(index, begin, block) {
         const self = this;
-        console.log('PIECE: ');
         process.nextTick(() => {
             self.blockCount--;
             self.pieceHash.update(block);
@@ -162,7 +157,6 @@ class Hose extends stream_1.Duplex {
         const self = this;
         if (extensionID === 0) {
             let obj = bencode.decode(payload);
-            console.log(obj);
             let m = obj.m;
             if (m['ut_metadata']) {
                 self.ext[UT_METADATA] = new ut_extensions_1.utMetadata(obj.metadata_size, self.infoHash);
@@ -184,30 +178,30 @@ class Hose extends stream_1.Duplex {
             }
         }
         else {
-            console.log('extensionID', extensionID);
             self.ext[extensionID]._message(payload);
         }
     }
     metaDataRequest() {
-        console.log('sending a metaData Request');
         const self = this;
         if (self.ext['ut_metadata']) {
-            let handshake = { 'm': { 'ut_metadata': UT_METADATA } }, prepHandshake = EXTENDED, handshakeEn = bencode.encode(handshake);
-            prepHandshake.writeUInt32BE(handshakeEn.length + 2, 0);
-            let handshakeBuf = buffer_1.Buffer.concat([prepHandshake, buffer_1.Buffer.from([0x00]), handshakeEn]);
-            console.log(handshakeBuf);
-            this._push(handshakeBuf);
+            self.metaDataHandshake();
             let request = { "msg_type": 0, "piece": 0 }, prepRequest = EXTENDED, requestEn = bencode.encode(request), code = new buffer_1.Buffer(1);
             prepRequest.writeUInt32BE(requestEn.length + 2, 0);
             code.writeUInt8(self.ext['ut_metadata'], 0);
             let requestBuf = buffer_1.Buffer.concat([prepRequest, code, requestEn]);
-            console.log(requestBuf);
             this._push(requestBuf);
         }
     }
+    metaDataHandshake() {
+        let handshake = EXT_PROTOCOL, prepHandshake = EXTENDED, handshakeEn = bencode.encode(handshake);
+        prepHandshake.writeUInt32BE(handshakeEn.length + 2, 0);
+        let handshakeBuf = buffer_1.Buffer.concat([prepHandshake, buffer_1.Buffer.from([0x00]), handshakeEn]);
+        this._push(handshakeBuf);
+    }
     handleCode(payload) {
         const self = this;
-        self.messageLength();
+        console.log('case: ', payload[0]);
+        self.nextAction();
         switch (payload[0]) {
             case 0:
                 self._debug('got choke');
@@ -230,11 +224,11 @@ class Hose extends stream_1.Duplex {
                 self._push(buffer_1.Buffer.concat([INTERESTED, UNCHOKE]));
                 break;
             case 3:
-                self._debug('got uninterested');
+                self._debug('peer is uninterested');
                 self.closeConnection();
                 break;
             case 4:
-                self._debug('got have');
+                self._debug('peer sent have');
                 self._onHave(payload.readUInt32BE(1));
                 break;
             case 5:

@@ -55,11 +55,46 @@ class TPH {
         let resultBuf = buffer_1.Buffer.concat(result);
         cb(resultBuf, count);
     }
+    prepareUpload(index, begin, length, cb) {
+        const self = this;
+        if ((begin * DL_SIZE) + length > self.length || index > self.pieceCount) {
+            cb(null);
+        }
+        let pre = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+        pre.writeUInt32BE(length + 9, 0);
+        pre.writeUInt32BE(index, 5);
+        pre.writeUInt32BE(begin, 9);
+        let start = (index * self.pieceSize) + (begin * DL_SIZE);
+        let piece = new buffer_1.Buffer(length);
+        piece.fill(0);
+        let pieceOffset = 0;
+        self.files.forEach((file) => {
+            if (start >= file.offset && start < (file.offset + file.length)) {
+                let f = fs_1.openSync(file.path, "r");
+                let fileStart = start - file.offset;
+                if ((start + length) < (file.offset + file.length)) {
+                    fs_1.readSync(f, piece, pieceOffset, length, fileStart);
+                }
+                else {
+                    let newLength = (file.offset + file.length) - start;
+                    fs_1.readSync(f, piece, pieceOffset, newLength, fileStart);
+                    start += newLength;
+                    length -= newLength;
+                    pieceOffset += newLength;
+                }
+            }
+        });
+        let resultBuf = buffer_1.Buffer.concat([pre, piece]);
+        cb(resultBuf);
+    }
     pieceIndex(num) {
         return num * this.pieceSize;
     }
     saveBlock(index, buf) {
         const self = this;
+        if (buf.length > DL_SIZE) {
+            return false;
+        }
         self.files.forEach((file) => {
             if ((file.offset <= index) && (index < (file.offset + file.length))) {
                 let offset = index - file.offset;
@@ -70,7 +105,7 @@ class TPH {
                     buf = buf.slice(newBufferLength);
                     index += newBufferLength;
                 }
-                var f = fs_1.openSync(file.path, 'r+');
+                let f = fs_1.openSync(file.path, "r+");
                 try {
                     if (!bufW) {
                         fs_1.writeSync(f, buf, 0, buf.length, offset);
@@ -80,7 +115,7 @@ class TPH {
                     }
                 }
                 catch (e) {
-                    fs_1.writeFileSync('./debug.txt', 'problem writing...');
+                    fs_1.writeFileSync("./debug.txt", "problem writing...");
                     return false;
                 }
             }

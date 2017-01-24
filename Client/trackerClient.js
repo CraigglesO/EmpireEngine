@@ -16,10 +16,6 @@ class udpTracker extends events_1.EventEmitter {
         self.MY_PORT = myPort;
         self.TRANSACTION_ID = null;
         self.EVENT = 0;
-        console.log('Host: ', self.HOST);
-        console.log('self.HASH: ', self.HASH);
-        console.log('self.MY_PORT: ', self.MY_PORT);
-        console.log('self.EVENT: ', self.EVENT);
         self.SCRAPE = true;
         self.DOWNLOADED = 0;
         self.LEFT = 1;

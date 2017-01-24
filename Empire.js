@@ -46,6 +46,7 @@ class Empire extends stream_1.Writable {
         torrent['uploaded'] = 0;
         torrent['downloaded'] = 0;
         torrent['bitfieldDL'] = '00';
+        torrent['finished'] = false;
         torrent['left'] = torrent['length'] || (-1);
         if (torrent['files']) {
             torrent['files'] = torrent['files'].map((file) => {
