@@ -1,4 +1,5 @@
 import { createServer, connect, Socket } from 'net';
+import { wrtcCreateServer, wrtcConnect } from "../modules/webRTC-Socket";
 import { EventEmitter }                  from 'events';
 import * as inherits                     from 'inherits';
 import { Hash }                          from 'crypto';
@@ -67,23 +68,24 @@ const PeerData = {
 const MAX_PEERS = 50;
 
 class torrentHandler extends EventEmitter {
-  peerID:        string
-  _debugId:      number
-  finished:      Boolean
-  torrent:       Torrent
-  pieces:        Array<string>
-  port:          number
-  trackers:      Object
-  trackerData:   Object
-  connectQueue:  Array<string>
-  haveStack:     Array<number>
-  bitfieldDL:    string
-  bitfield:      binaryBitfield
-  tph:           TPH
-  peers:         any
-  hoses:         any
-  incomingPeers: any
-  inRequests:    Array<Request>
+  peerID:            string
+  _debugId:          number
+  finished:          Boolean
+  torrent:           Torrent
+  pieces:            Array<string>
+  port:              number
+  trackers:          Object
+  trackerData:       Object
+  connectQueue:      Array<string>
+  haveStack:         Array<number>
+  bitfieldDL:        string
+  bitfield:          binaryBitfield
+  tph:               TPH
+  peers:             any
+  hoses:             any
+  incomingPeers:     any
+  incomingWrtcPeers: any
+  inRequests:        Array<Request>
 
   constructor(torrent: any) {
     super();
@@ -96,7 +98,7 @@ class torrentHandler extends EventEmitter {
 
     self.finished      = torrent.finished;
     self.torrent       = torrent;
-    self.port          = 1991;
+    self.port          = null;
     // self.port          = ~~( ( Math.random() * (65535-1000) ) + 1000 ); // Random port for speeeed.
     self.trackers      = {};
     self.trackerData   = {};
@@ -112,6 +114,19 @@ class torrentHandler extends EventEmitter {
     process.on('uncaughtException', function (err) {
       console.log(err);
     });
+
+    // P2P relations (TCP)
+    self.incomingPeers = createServer((socket) => {
+      self.createIncomingPeer(socket);
+    }).listen(0, () => {
+      self.port = self.incomingPeers().port;
+    });
+
+    // Eventually add WS support
+
+    self.incomingWrtcPeers = wrtcCreateServer((socket) => {
+      self.createIncomingPeer(socket);
+    }).listen(9001);
 
     // Trackers (WSS/UDP)
     self.torrent['announce'].forEach((tracker: string) => {
@@ -143,67 +158,6 @@ class torrentHandler extends EventEmitter {
 
     });
 
-    // P2P relations (TCP)
-    self.incomingPeers = createServer((socket) => {
-      self._debug('new connection');
-      console.log('new connection');
-      let host   = socket.remoteAddress,
-          port   = socket.remotePort,
-          family = socket.remoteFamily,
-          hose   = self.hoses[host] = new Hose(self.torrent.infoHash, self.peerID);
-      // Create the peer (MODES: 0 - handshake; 1 - downloading; 2 - uploading; 3 - metadata)
-      self.peers[host+port] = { port, family, hose, socket, bitfield: '00', position: 0, piece: 0, mode: 2 };
-      socket.pipe(hose).pipe(socket);
-      // TODO: SET BITFIELDDL DURING DOWNLOAD
-      hose.on('handshake', (infoHash: Buffer, peerID: string) => {
-        console.log('HANDSHAKE!');
-        if (self.torrent.infoHash !== infoHash.toString('hex'))
-          return;
-        // Send handshake, metadata handshake, and bitfield.
-        // TODO: send user data about itself in handshake
-        hose.sendHandshake();
-        hose.metaDataHandshake();
-        hose.sendBitfield(self.bitfieldDL);
-      });
-
-      hose.on('request', () => {
-        console.log('REQUEST');
-        if (!hose.reqBusy) {
-          console.log('request busy worked');
-          hose.reqBusy = true;
-          console.log('hose.inrequests: ', hose.inRequests)
-          console.log('hose.inrequests: ', hose.inRequests.length)
-          // Iterate through requests...
-          // process.nextTick(() => {
-          //
-          // });
-          while (hose.inRequests.length) {
-            let request = hose.inRequests.shift();
-            console.log('the request: ', request);
-            self.tph.prepareUpload(request.index, request.begin, request.length, (piece: Buffer) => {
-              console.log('the peice:',piece)
-              hose.sendPiece(piece);
-            });
-          }
-          hose.reqBusy = false;
-        }
-      });
-
-      hose.on('have', (pieceIndex: number) => {
-        // TODO: If new piece and not a seeder, switch to download phase and grab
-      });
-
-      self.peers[host+port].socket.on('close', () => {
-        self._debug('the socket decided to leave');
-        // Destroy the hose and delete the Object
-        self.peers[host+port] = null;
-        delete self.peers[host+port];
-      });
-
-    }).listen(self.port);
-
-    // Eventually add WS support
-
   }
 
   newConnectionRequests() {
@@ -213,6 +167,55 @@ class torrentHandler extends EventEmitter {
       let peer = self.connectQueue.shift().split(':');
       self.createPeer(peer[1], peer[0]);
     }
+  }
+
+  createIncomingPeer(socket) {
+    const self = this;
+    let host   = (socket.remoteAddress) ? socket.remoteAddress : socket.host,
+        port   = (socket.remotePort) ? socket.remotePort : socket.port,
+        family = (socket.remoteFamily) ? socket.remoteFamily : socket.family,
+        hose   = self.hoses[host] = new Hose(self.torrent.infoHash, self.peerID);
+    // Create the peer (MODES: 0 - handshake; 1 - downloading; 2 - uploading; 3 - metadata)
+    self.peers[host+port] = { port, family, hose, socket, bitfield: '00', position: 0, piece: 0, mode: 2 };
+    socket.pipe(hose).pipe(socket);
+    // TODO: SET BITFIELDDL DURING DOWNLOAD
+    hose.on('handshake', (infoHash: Buffer, peerID: string) => {
+      if (self.torrent.infoHash !== infoHash.toString('hex'))
+        return;
+      // Send handshake, metadata handshake, and bitfield.
+      // TODO: send user data about itself in handshake
+      hose.sendHandshake();
+      hose.metaDataHandshake();
+      hose.sendBitfield(self.bitfieldDL);
+    });
+
+    hose.on('request', () => {
+      if (!hose.reqBusy) {
+        hose.reqBusy = true;
+
+        // Iterate through requests...
+        while (hose.inRequests.length) {
+          let request = hose.inRequests.shift();
+          self.tph.prepareUpload(request.index, request.begin, request.length, (piece: Buffer) => {
+            process.nextTick(() => {
+              hose.sendPiece(piece);
+            });
+          });
+        }
+        hose.reqBusy = false;
+      }
+    });
+
+    hose.on('have', (pieceIndex: number) => {
+      // TODO: If new piece and not a seeder, switch to download phase and grab
+    });
+
+    self.peers[host+port].socket.on('close', () => {
+      self._debug('the socket decided to leave');
+      // Destroy the hose and delete the Object
+      self.peers[host+port] = null;
+      delete self.peers[host+port];
+    });
   }
 
   createPeer(port, host) {

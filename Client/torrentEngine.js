@@ -1,5 +1,6 @@
 "use strict";
 const net_1 = require("net");
+const webRTC_Socket_1 = require("../modules/webRTC-Socket");
 const events_1 = require("events");
 const fs = require("fs");
 const trackerClient_1 = require("./trackerClient");
@@ -33,7 +34,7 @@ class torrentHandler extends events_1.EventEmitter {
         self.peerID = '-EM0012-ABCDEFGHIJKL';
         self.finished = torrent.finished;
         self.torrent = torrent;
-        self.port = 1991;
+        self.port = null;
         self.trackers = {};
         self.trackerData = {};
         self.peers = {};
@@ -46,6 +47,14 @@ class torrentHandler extends events_1.EventEmitter {
         process.on('uncaughtException', function (err) {
             console.log(err);
         });
+        self.incomingPeers = net_1.createServer((socket) => {
+            self.createIncomingPeer(socket);
+        }).listen(0, () => {
+            self.port = self.incomingPeers().port;
+        });
+        self.incomingWrtcPeers = webRTC_Socket_1.wrtcCreateServer((socket) => {
+            self.createIncomingPeer(socket);
+        }).listen(9001);
         self.torrent['announce'].forEach((tracker) => {
             let pt = parse_p2p_tracker_1.default(tracker);
             if (pt.type === 'udp') {
@@ -70,46 +79,6 @@ class torrentHandler extends events_1.EventEmitter {
                 self.trackerData[tracker + ':nextReq'] = timeTillNextScrape;
             });
         });
-        self.incomingPeers = net_1.createServer((socket) => {
-            self._debug('new connection');
-            console.log('new connection');
-            let host = socket.remoteAddress, port = socket.remotePort, family = socket.remoteFamily, hose = self.hoses[host] = new Hose_1.default(self.torrent.infoHash, self.peerID);
-            self.peers[host + port] = { port, family, hose, socket, bitfield: '00', position: 0, piece: 0, mode: 2 };
-            socket.pipe(hose).pipe(socket);
-            hose.on('handshake', (infoHash, peerID) => {
-                console.log('HANDSHAKE!');
-                if (self.torrent.infoHash !== infoHash.toString('hex'))
-                    return;
-                hose.sendHandshake();
-                hose.metaDataHandshake();
-                hose.sendBitfield(self.bitfieldDL);
-            });
-            hose.on('request', () => {
-                console.log('REQUEST');
-                if (!hose.reqBusy) {
-                    console.log('request busy worked');
-                    hose.reqBusy = true;
-                    console.log('hose.inrequests: ', hose.inRequests);
-                    console.log('hose.inrequests: ', hose.inRequests.length);
-                    while (hose.inRequests.length) {
-                        let request = hose.inRequests.shift();
-                        console.log('the request: ', request);
-                        self.tph.prepareUpload(request.index, request.begin, request.length, (piece) => {
-                            console.log('the peice:', piece);
-                            hose.sendPiece(piece);
-                        });
-                    }
-                    hose.reqBusy = false;
-                }
-            });
-            hose.on('have', (pieceIndex) => {
-            });
-            self.peers[host + port].socket.on('close', () => {
-                self._debug('the socket decided to leave');
-                self.peers[host + port] = null;
-                delete self.peers[host + port];
-            });
-        }).listen(self.port);
     }
     newConnectionRequests() {
         const self = this;
@@ -117,6 +86,40 @@ class torrentHandler extends events_1.EventEmitter {
             let peer = self.connectQueue.shift().split(':');
             self.createPeer(peer[1], peer[0]);
         }
+    }
+    createIncomingPeer(socket) {
+        const self = this;
+        let host = (socket.remoteAddress) ? socket.remoteAddress : socket.host, port = (socket.remotePort) ? socket.remotePort : socket.port, family = (socket.remoteFamily) ? socket.remoteFamily : socket.family, hose = self.hoses[host] = new Hose_1.default(self.torrent.infoHash, self.peerID);
+        self.peers[host + port] = { port, family, hose, socket, bitfield: '00', position: 0, piece: 0, mode: 2 };
+        socket.pipe(hose).pipe(socket);
+        hose.on('handshake', (infoHash, peerID) => {
+            if (self.torrent.infoHash !== infoHash.toString('hex'))
+                return;
+            hose.sendHandshake();
+            hose.metaDataHandshake();
+            hose.sendBitfield(self.bitfieldDL);
+        });
+        hose.on('request', () => {
+            if (!hose.reqBusy) {
+                hose.reqBusy = true;
+                while (hose.inRequests.length) {
+                    let request = hose.inRequests.shift();
+                    self.tph.prepareUpload(request.index, request.begin, request.length, (piece) => {
+                        process.nextTick(() => {
+                            hose.sendPiece(piece);
+                        });
+                    });
+                }
+                hose.reqBusy = false;
+            }
+        });
+        hose.on('have', (pieceIndex) => {
+        });
+        self.peers[host + port].socket.on('close', () => {
+            self._debug('the socket decided to leave');
+            self.peers[host + port] = null;
+            delete self.peers[host + port];
+        });
     }
     createPeer(port, host) {
         const self = this;
