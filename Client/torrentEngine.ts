@@ -65,7 +65,7 @@ const PeerData = {
   piece:    0
 }
 
-const MAX_PEERS = 50;
+const MAX_PEERS = 55;
 
 class torrentHandler extends EventEmitter {
   peerID:            string
@@ -119,18 +119,21 @@ class torrentHandler extends EventEmitter {
     self.incomingPeers = createServer((socket) => {
       self.createIncomingPeer(socket);
     }).listen(0, () => {
-      self.port = self.incomingPeers().port;
+      self.port = self.incomingPeers.address().port;
+      console.log(self.port);
     });
 
     // Eventually add WS support
 
     self.incomingWrtcPeers = wrtcCreateServer((socket) => {
       self.createIncomingPeer(socket);
-    }).listen(9001);
+    });
+    self.incomingWrtcPeers.listen(9001);
 
     // Trackers (WSS/UDP)
     self.torrent['announce'].forEach((tracker: string) => {
       let pt = parseTracker(tracker);
+      console.log(pt);
       if (pt.type === 'udp') {
         self.trackers[tracker] = new udpTracker(pt.host, pt.port, self.port, self.torrent.infoHash);
       } else {
@@ -165,7 +168,7 @@ class torrentHandler extends EventEmitter {
     // Determine how much room we have to add peers and connect.
     while ((self.peers.length || 0) < MAX_PEERS && (self.connectQueue.length)) {
       let peer = self.connectQueue.shift().split(':');
-      self.createPeer(peer[1], peer[0]);
+      self.createPeer(Number(peer[1]), peer[0], 'tcp');
     }
   }
 
@@ -218,11 +221,14 @@ class torrentHandler extends EventEmitter {
     });
   }
 
-  createPeer(port, host) {
+  createPeer(port: number, host: string, type?: string) {
     const self = this;
     // Create the peer (MODES: 0 - handshake; 1 - downloading; 2 - uploading; 3 - metadata)
     self.peers[host+port] = { port, family: 'ipv4', hose: new Hose(self.torrent.infoHash, self.peerID), socket: null, bitfield: '00', position: 0, piece: 0, mode: 0 }; // [port, IPV-family, hose, socket, Bitfield]
-    self.peers[host+port].socket = connect(port, host);
+    if (type === 'tcp')
+      self.peers[host+port].socket = connect(port, host);
+    else if (type === 'webrtc')
+      self.peers[host+port].socket = wrtcConnect(port, host);
     self.peers[host+port].socket.once('connect', () => {
       self.peers[host+port]['socket'].pipe(self.peers[host+port].hose).pipe(self.peers[host+port]['socket']);
       self.peers[host+port].hose.sendHandshake();
@@ -234,28 +240,31 @@ class torrentHandler extends EventEmitter {
       self.peers[host+port].socket.destroy();
       self.peers[host+port] = null;
       delete self.peers[host+port];
+      self.newConnectionRequests();
     });
 
     self.peers[host+port].socket.on('close', () => {
       // Destroy the hose and delete the Object
       self.peers[host+port] = null;
       delete self.peers[host+port];
-    })
+      self.newConnectionRequests();
+    });
 
     self.peers[host+port]['hose'].on('metadata', (torrent) => {
+      console.log('metadata');
       // Add the data to our torrent
       extend(self.torrent, torrent);
       // Prepare bitfield, files, and block handler
       self.bitfield = new binaryBitfield(self.torrent.pieces.length, self.torrent.bitfieldDL);
       self.manageFiles();
       self.tph      = new TPH(self.torrent.files, self.torrent.length, self.torrent.pieceLength, self.torrent.pieces.length, self.torrent.lastPieceLength);
-      // Kill the metadata instance
-      self.peers[host+port]['hose'].removeMeta();
       // Convert all peers who are currently in meta_data mode to download mode
+      console.log('downloadPhase');
       self.downloadPhase(); // (from mode: 3, to: 1)
     });
 
     self.peers[host+port]['hose'].on('bitfield', (payload) => {
+      console.log('bitfield');
       // Add the bitfield to the host+port
       self.peers[host+port].bitfield = payload;
       // Check that we have a connection:
@@ -272,6 +281,8 @@ class torrentHandler extends EventEmitter {
     });
 
     self.peers[host+port]['hose'].on('have', (payload) => {
+      if (!self.bitfield)
+        return;
       // UPDATE bitfield here
       self.peers[host+port].bitfield = self.bitfield.onHave(payload, self.peers[host+port].bitfield);
       // IF we are already sending a request and recieving a piece... hold your horses
@@ -298,6 +309,13 @@ class torrentHandler extends EventEmitter {
         percent = self.bitfield.setDownloaded(self.peers[host+port].piece);
         // Emit up.
         // self.emit('finished_piece', percent, );
+      } else {
+        // Remove piece and try again
+        self.bitfield.set(self.peers[host+port].piece, false);
+        // Start a new request sequence
+        process.nextTick(() => {
+          self.fetchNewPiece(self.peers[host+port]);
+        });
       }
       console.log('index downloaded: ', index);
       console.log('percent:          ', percent);
@@ -334,13 +352,18 @@ class torrentHandler extends EventEmitter {
       }
     });
   }
+
   // MODES: 0 - handshake; 1 - downloading; 2 - uploading; 3 - metadata
   downloadPhase() {
     const self = this;
     for (let host in self.peers) {
       // Convert metadata peers to downloaders:
       if (self.peers[host].mode === 3) {
+        // Kill the metadata instance
+        self.peers[host]['hose'].removeMeta();
+        // Change the mode
         self.peers[host].mode = 1;
+        // Fetch new pieces
         self.fetchNewPiece(self.peers[host]);
       }
     }

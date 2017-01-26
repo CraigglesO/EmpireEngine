@@ -4,7 +4,7 @@ const WebSocket = require("ws");
 const buffer_1 = require("buffer");
 const stream_1 = require("stream");
 const MAX_REQUEST_LENGHT = 1024;
-function wrtcConnect(host, port) {
+function wrtcConnect(port, host) {
     return new WrtcSocket(host, port);
 }
 exports.wrtcConnect = wrtcConnect;
@@ -102,6 +102,9 @@ class WrtcIncomingSocket extends stream_1.Duplex {
         this.pc.close();
         this.ws.close();
     }
+    destroy() {
+        this.close();
+    }
     send(payload) {
         if (buffer_1.Buffer.isBuffer(payload))
             payload = new Uint8Array(payload);
@@ -117,7 +120,7 @@ class WrtcIncomingSocket extends stream_1.Duplex {
         this.emit("connect");
     }
     handleError(err) {
-        throw err;
+        this.emit("error");
     }
     createAnswer() {
         const self = this;
@@ -231,6 +234,9 @@ class WrtcSocket extends stream_1.Duplex {
         this.pc.close();
         this.ws.close();
     }
+    destroy() {
+        this.close();
+    }
     send(payload) {
         if (buffer_1.Buffer.isBuffer(payload))
             payload = new Uint8Array(payload);
@@ -243,7 +249,7 @@ class WrtcSocket extends stream_1.Duplex {
         next(null);
     }
     handleError(err) {
-        throw err;
+        this.emit("error");
     }
     ready() {
         this.emit("connect");

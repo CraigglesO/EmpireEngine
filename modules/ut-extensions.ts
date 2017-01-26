@@ -46,7 +46,8 @@ class utMetadata extends EventEmitter {
     self.metaDataSize  = metaDataSize;
     self.infoHash      = infoHash;
     self.pieceHash     = createHash('sha1');
-    self.piece_count   = Math.ceil(metaDataSize / PACKET_SIZE);
+    self.piece_count   = (self.metaDataSize) ? Math.ceil(metaDataSize / PACKET_SIZE) : 1;
+    console.log(metaDataSize);
     self.next_piece    = 0;
     self.pieces        = Array.apply(null, Array(self.piece_count));
 
@@ -59,37 +60,35 @@ class utMetadata extends EventEmitter {
         dict         = bencode.decode( str ),
         trailer      = payload.slice(trailerIndex);
 
+    console.log('message: ', dict);
+    console.log('piece_count', self.piece_count);
     switch (dict.msg_type) {
       case 0:
         // REQUEST {'msg_type': 0, 'piece': 0}
         break
       case 1:
-        // DATA {'msg_type': 1, 'piece': 0, 'total_size': 3425}
-        if (dict.total_size > PACKET_SIZE) {
-          // Too big, let's try again:
-          self.next_piece = 0;
-          self.emit('next', self.next_piece);
-        } else {
-          self.pieces[dict.piece] = trailer;
-          // update the hash
-          self.pieceHash.update(trailer);
-
-          // Check that we have all the pieces
-          if ( ++self.next_piece === self.piece_count ) {
-            // Check that the hash matches the infoHash we started with
-            if ( self.pieceHash.digest('hex') === self.infoHash ) {
-              // parse the metadata and send it off.
-              let torrent = parseMetaData( Buffer.concat(self.pieces) );
-              self.emit('metadata', torrent);
-            } else {
-              // Bad torrent data; try again
-              self.next_piece = 0;
-              self.emit('next', self.next_piece);
-            }
+        self.pieces[dict.piece] = trailer;
+        // update the hash
+        self.pieceHash.update(trailer);
+        console.log('piece count: ', self.piece_count);
+        console.log('next piece: ', self.next_piece);
+        // Check that we have all the pieces
+        if ( ++self.next_piece === self.piece_count ) {
+          // Check that the hash matches the infoHash we started with
+          if ( self.pieceHash.digest('hex') === self.infoHash ) {
+            // Parse the metadata and send it off.
+            let torrent = parseMetaData( Buffer.concat(self.pieces) );
+            self.emit('metadata', torrent);
           } else {
-            // Otherwise tell the engine we need more data
+            // Bad torrent data; try again
+            self.next_piece = 0;
+            console.log('bad torrent data');
             self.emit('next', self.next_piece);
           }
+        } else {
+          // Otherwise tell the engine we need more data
+          console.log('more data..');
+          self.emit('next', self.next_piece);
         }
         break
       case 2:

@@ -10,8 +10,8 @@ const writeUInt64BE    = require('writeUInt64BE'),
       ACTION_CONNECT   = 0,
       ACTION_ANNOUNCE  = 1,
       ACTION_SCRAPE    = 2,
-      ACTION_ERROR     = 3,
-      connectionIdHigh = 0x417,
+      ACTION_ERROR     = 3;
+let   connectionIdHigh = 0x417,
       connectionIdLow  = 0x27101980;
 
 class udpTracker extends EventEmitter {
@@ -166,8 +166,8 @@ class udpTracker extends EventEmitter {
 
       // Server will establish a new connection_id to talk on.
       // This connection_id dies after 5-10 seconds.
-      let connectionIdHigh = buf.readUInt32BE(8),     // 0   64-bit integer  connection_id
-          connectionIdLow  = buf.readUInt32BE(12);    // 0   64-bit integer  connection_id
+      connectionIdHigh = buf.readUInt32BE(8);     // 0   64-bit integer  connection_id
+      connectionIdLow  = buf.readUInt32BE(12);    // 0   64-bit integer  connection_id
 
       // avoid scraping unless it's a timed checkup
       if (self.SCRAPE) {

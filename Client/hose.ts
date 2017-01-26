@@ -66,6 +66,7 @@ class Hose extends Duplex {
   isActive:        Boolean
   busy:            Boolean
   reqBusy:         Boolean
+  meta:            Boolean
   ext:             Extension | Object
 
   constructor (infoHash: string, peerID: string) {
@@ -96,6 +97,7 @@ class Hose extends Duplex {
     self.interested      = false;
     self.busy            = false;
     self.reqBusy         = false;
+    self.meta            = true;
     self.ext             = {};
 
     self.prepHandshake();
@@ -176,7 +178,6 @@ class Hose extends Duplex {
   }
   // handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
   sendHandshake() {
-    console.log('send handshake');
     //TODO: check if infohash and peerID are already buffers
     this.sentHandshake = true;
     //convert infoHash and peerID to buffer
@@ -278,6 +279,7 @@ class Hose extends Duplex {
       let m = obj.m;
       if (m['ut_metadata']) {
         // Handle the ut_metadata protocol here:
+        console.log(obj);
         self.ext[UT_METADATA]   = new utMetadata(obj.metadata_size, self.infoHash);
         self.ext['ut_metadata'] = m['ut_metadata'];
 
@@ -307,7 +309,8 @@ class Hose extends Duplex {
       }
     } else {
       // Handle the payload with the proper extension
-      self.ext[extensionID]._message(payload);
+      if (self.meta)
+        self.ext[extensionID]._message(payload);
     }
   }
 
@@ -323,6 +326,7 @@ class Hose extends Duplex {
       prepRequest.writeUInt32BE(requestEn.length + 2, 0);
       code.writeUInt8(self.ext['ut_metadata'], 0);
       let requestBuf = Buffer.concat([prepRequest, code, requestEn]);
+      console.log('metadata request');
       this._push(requestBuf);
     }
   }
@@ -341,7 +345,6 @@ class Hose extends Duplex {
 
   handleCode(payload: Buffer) {
     const self = this;
-    console.log('case: ',payload[0])
     self.nextAction()     // Prep for the next nextAction
     switch (payload[0]) {
       case 0:
@@ -430,6 +433,7 @@ class Hose extends Duplex {
   }
 
   removeMeta() {
+    this.meta = false;
     this.ext[ UT_METADATA ] = null;
     delete this.ext[ UT_METADATA ];
   }

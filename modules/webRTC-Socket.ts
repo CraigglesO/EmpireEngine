@@ -19,7 +19,7 @@ interface Candidate {
 
 const MAX_REQUEST_LENGHT = 1024;
 
-function wrtcConnect(host: string, port: number): WrtcSocket {
+function wrtcConnect(port: number, host: string): WrtcSocket {
   return new WrtcSocket(host, port);
 }
 
@@ -154,6 +154,10 @@ class WrtcIncomingSocket extends Duplex {
     this.ws.close();
   }
 
+  destroy() {
+    this.close();
+  }
+
   send(payload: any) {
     if (Buffer.isBuffer(payload))
       payload = new Uint8Array(payload);
@@ -175,7 +179,7 @@ class WrtcIncomingSocket extends Duplex {
   }
 
   handleError(err) {
-    throw err;
+    this.emit("error");
   }
 
   createAnswer() {
@@ -332,6 +336,10 @@ class WrtcSocket extends Duplex {
     this.ws.close();
   }
 
+  destroy() {
+    this.close();
+  }
+
   send(payload: any) {
     if (Buffer.isBuffer(payload))
       payload = new Uint8Array(payload);
@@ -348,7 +356,7 @@ class WrtcSocket extends Duplex {
   }
 
   handleError(err) {
-    throw err;
+    this.emit("error");
   }
 
   ready() {

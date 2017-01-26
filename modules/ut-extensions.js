@@ -11,37 +11,38 @@ class utMetadata extends events_1.EventEmitter {
         self.metaDataSize = metaDataSize;
         self.infoHash = infoHash;
         self.pieceHash = crypto_1.createHash('sha1');
-        self.piece_count = Math.ceil(metaDataSize / PACKET_SIZE);
+        self.piece_count = (self.metaDataSize) ? Math.ceil(metaDataSize / PACKET_SIZE) : 1;
+        console.log(metaDataSize);
         self.next_piece = 0;
         self.pieces = Array.apply(null, Array(self.piece_count));
     }
     _message(payload) {
         const self = this;
         let str = payload.toString(), trailerIndex = str.indexOf('ee') + 2, dict = bencode.decode(str), trailer = payload.slice(trailerIndex);
+        console.log('message: ', dict);
+        console.log('piece_count', self.piece_count);
         switch (dict.msg_type) {
             case 0:
                 break;
             case 1:
-                if (dict.total_size > PACKET_SIZE) {
-                    self.next_piece = 0;
-                    self.emit('next', self.next_piece);
-                }
-                else {
-                    self.pieces[dict.piece] = trailer;
-                    self.pieceHash.update(trailer);
-                    if (++self.next_piece === self.piece_count) {
-                        if (self.pieceHash.digest('hex') === self.infoHash) {
-                            let torrent = parseMetaData(Buffer.concat(self.pieces));
-                            self.emit('metadata', torrent);
-                        }
-                        else {
-                            self.next_piece = 0;
-                            self.emit('next', self.next_piece);
-                        }
+                self.pieces[dict.piece] = trailer;
+                self.pieceHash.update(trailer);
+                console.log('piece count: ', self.piece_count);
+                console.log('next piece: ', self.next_piece);
+                if (++self.next_piece === self.piece_count) {
+                    if (self.pieceHash.digest('hex') === self.infoHash) {
+                        let torrent = parseMetaData(Buffer.concat(self.pieces));
+                        self.emit('metadata', torrent);
                     }
                     else {
+                        self.next_piece = 0;
+                        console.log('bad torrent data');
                         self.emit('next', self.next_piece);
                     }
+                }
+                else {
+                    console.log('more data..');
+                    self.emit('next', self.next_piece);
                 }
                 break;
             case 2:

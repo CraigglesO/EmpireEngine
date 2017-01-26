@@ -3,7 +3,8 @@ const events_1 = require("events");
 const dgram = require("dgram");
 const debug = require("debug");
 debug('trackerClient');
-const writeUInt64BE = require('writeUInt64BE'), ACTION_CONNECT = 0, ACTION_ANNOUNCE = 1, ACTION_SCRAPE = 2, ACTION_ERROR = 3, connectionIdHigh = 0x417, connectionIdLow = 0x27101980;
+const writeUInt64BE = require('writeUInt64BE'), ACTION_CONNECT = 0, ACTION_ANNOUNCE = 1, ACTION_SCRAPE = 2, ACTION_ERROR = 3;
+let connectionIdHigh = 0x417, connectionIdLow = 0x27101980;
 class udpTracker extends events_1.EventEmitter {
     constructor(trackerHost, port, myPort, infoHash) {
         super();
@@ -105,7 +106,8 @@ class udpTracker extends events_1.EventEmitter {
         let action = buf.readUInt32BE(0);
         self.TRANSACTION_ID = buf.readUInt32BE(4);
         if (action === ACTION_CONNECT) {
-            let connectionIdHigh = buf.readUInt32BE(8), connectionIdLow = buf.readUInt32BE(12);
+            connectionIdHigh = buf.readUInt32BE(8);
+            connectionIdLow = buf.readUInt32BE(12);
             if (self.SCRAPE) {
                 self.SCRAPE = false;
                 self.scrape();

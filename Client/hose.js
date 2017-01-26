@@ -40,6 +40,7 @@ class Hose extends stream_1.Duplex {
         self.interested = false;
         self.busy = false;
         self.reqBusy = false;
+        self.meta = true;
         self.ext = {};
         self.prepHandshake();
     }
@@ -93,7 +94,6 @@ class Hose extends stream_1.Duplex {
         this._push(KEEP_ALIVE);
     }
     sendHandshake() {
-        console.log('send handshake');
         this.sentHandshake = true;
         let infoHashBuffer = buffer_1.Buffer.from(this.infoHash, 'hex'), peerIDbuffer = buffer_1.Buffer.from('2d4c54313030302d764874743153546a4d583043', 'hex');
         this._push(buffer_1.Buffer.concat([PROTOCOL, RESERVED, infoHashBuffer, peerIDbuffer]));
@@ -159,6 +159,7 @@ class Hose extends stream_1.Duplex {
             let obj = bencode.decode(payload);
             let m = obj.m;
             if (m['ut_metadata']) {
+                console.log(obj);
                 self.ext[UT_METADATA] = new ut_extensions_1.utMetadata(obj.metadata_size, self.infoHash);
                 self.ext['ut_metadata'] = m['ut_metadata'];
                 self.ext[UT_METADATA].on('next', (piece) => {
@@ -178,7 +179,8 @@ class Hose extends stream_1.Duplex {
             }
         }
         else {
-            self.ext[extensionID]._message(payload);
+            if (self.meta)
+                self.ext[extensionID]._message(payload);
         }
     }
     metaDataRequest() {
@@ -189,6 +191,7 @@ class Hose extends stream_1.Duplex {
             prepRequest.writeUInt32BE(requestEn.length + 2, 0);
             code.writeUInt8(self.ext['ut_metadata'], 0);
             let requestBuf = buffer_1.Buffer.concat([prepRequest, code, requestEn]);
+            console.log('metadata request');
             this._push(requestBuf);
         }
     }
@@ -200,7 +203,6 @@ class Hose extends stream_1.Duplex {
     }
     handleCode(payload) {
         const self = this;
-        console.log('case: ', payload[0]);
         self.nextAction();
         switch (payload[0]) {
             case 0:
@@ -273,6 +275,7 @@ class Hose extends stream_1.Duplex {
         this.emit('close');
     }
     removeMeta() {
+        this.meta = false;
         this.ext[UT_METADATA] = null;
         delete this.ext[UT_METADATA];
     }
