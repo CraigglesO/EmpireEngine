@@ -107,6 +107,8 @@ class binaryBitfield {
                 oneCount++;
         }
         this.percent = Math.round((oneCount / p.length) * 100) / 100;
+        if (this.percent === 1 && oneCount !== p.length)
+            this.percent = 0.99;
         return this.percent;
     }
     countPieces(hex) {

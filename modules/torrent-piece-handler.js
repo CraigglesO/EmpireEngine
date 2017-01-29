@@ -14,6 +14,9 @@ class TPH {
         self.parts = pieceSize / DL_SIZE;
         self.lastParts = Math.floor(lastPieceSize / DL_SIZE);
         self.leftover = lastPieceSize % DL_SIZE;
+        console.log('PIECE SIZE: ', self.pieceSize);
+        console.log('PIECE COUNT: ', self.pieceCount);
+        console.log('PARTS: ', self.parts);
     }
     prepareRequest(pieceNumber, cb) {
         const self = this;
@@ -64,7 +67,7 @@ class TPH {
         pre.writeUInt32BE(length + 9, 0);
         pre.writeUInt32BE(index, 5);
         pre.writeUInt32BE(begin, 9);
-        let start = (index * self.pieceSize) + (begin * DL_SIZE);
+        let start = (index * self.pieceSize) + (begin);
         let piece = new buffer_1.Buffer(length);
         piece.fill(0);
         let pieceOffset = 0;
@@ -92,7 +95,7 @@ class TPH {
     }
     saveBlock(index, buf) {
         const self = this;
-        if (buf.length > DL_SIZE) {
+        if (buf.length > self.pieceSize) {
             return false;
         }
         self.files.forEach((file) => {

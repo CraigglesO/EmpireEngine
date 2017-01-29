@@ -16,6 +16,7 @@ const bencode     = require('bencode');
 
 const BITFIELD_MAX_SIZE  = 100000; // Size of field for preporations
 const KEEP_ALIVE_TIMEOUT = 55000;  // 55 seconds
+const DL_SIZE = 16384;
 
 const PROTOCOL     = Buffer.from('\u0013BitTorrent protocol'),
       RESERVED     = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00]),
@@ -214,7 +215,9 @@ class Hose extends Duplex {
     self.blockCount = count;
     self.busy       = true;
     // Create a new hash to ensure authenticity
+    console.log('create new hash');
     self.pieceHash  = createHash('sha1');
+    console.log('create request: ', count);
     this._push(payload);
   }
   // piece: <len=0009+X><id=7><index><begin><block>
@@ -252,13 +255,15 @@ class Hose extends Duplex {
     const self = this;
     process.nextTick(() => {
       self.blockCount--;
-      // Update hash:
-      self.pieceHash.update(block);
       // Commit piece to total. We wait to concat the buffers due to speed concerns
-      self.blocks.push(block);
+      self.blocks[begin / DL_SIZE] = block;
       // If we have all the blocks we need to make a piece send it up to torrentEngine:
       if (!self.blockCount) {
-        self.emit('finished_piece', index, begin, Buffer.concat(self.blocks), self.pieceHash);
+        let resultBuf = Buffer.concat(self.blocks);
+        // Update hash:
+        self.pieceHash.update(resultBuf);
+        // Emit up:
+        self.emit('finished_piece', index, resultBuf, self.pieceHash);
         self.blocks = [];
       }
     });

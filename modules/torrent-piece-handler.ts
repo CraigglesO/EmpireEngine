@@ -30,6 +30,10 @@ class TPH {
     self.parts         = pieceSize / DL_SIZE;
     self.lastParts     = Math.floor(lastPieceSize / DL_SIZE);
     self.leftover      = lastPieceSize % DL_SIZE;
+
+    console.log('PIECE SIZE: ', self.pieceSize);
+    console.log('PIECE COUNT: ', self.pieceCount);
+    console.log('PARTS: ', self.parts);
   }
 
   prepareRequest(pieceNumber: number, cb: Function) {
@@ -75,7 +79,7 @@ class TPH {
 
   prepareUpload(index: number, begin: number, length: number, cb: Function) {
     // index: which hash piece (e.g. 0,1,2,3,4,...)
-    // begin: which part of the piece (e.g. 0,1,2,3,4,...)
+    // begin: which part of the piece (e.g. 0,DL_SIZE,DL_SIZE * 2,DL_SIZE * 3,DL_SIZE * 4,...)
     // length: piece request size: (e.g. 16,384)
     const self = this;
     // Check that the input is within the range
@@ -89,7 +93,7 @@ class TPH {
     pre.writeUInt32BE(begin, 9);
 
     // Index is the starting piece. Multiply by piece size and add begin which is multiplied by the DL_SIZE limit
-    let start = (index * self.pieceSize) + (begin * DL_SIZE);
+    let start = (index * self.pieceSize) + (begin);
     // Prepare piece to send back
     let piece = new Buffer(length);
     piece.fill(0);
@@ -128,7 +132,7 @@ class TPH {
   saveBlock(index: number, buf: Buffer): Boolean {
     const self = this;
 
-    if (buf.length > DL_SIZE) {
+    if (buf.length > self.pieceSize) {
       return false;
     }
 

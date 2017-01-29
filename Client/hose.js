@@ -9,6 +9,7 @@ const speedometer = require('speedometer');
 const bencode = require('bencode');
 const BITFIELD_MAX_SIZE = 100000;
 const KEEP_ALIVE_TIMEOUT = 55000;
+const DL_SIZE = 16384;
 const PROTOCOL = buffer_1.Buffer.from('\u0013BitTorrent protocol'), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]), EXTENDED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]), EXT_PROTOCOL = { 'm': { 'ut_metadata': 2 } }, UT_PEX = 1, UT_METADATA = 2;
 class Hose extends stream_1.Duplex {
     constructor(infoHash, peerID) {
@@ -117,7 +118,9 @@ class Hose extends stream_1.Duplex {
         const self = this;
         self.blockCount = count;
         self.busy = true;
+        console.log('create new hash');
         self.pieceHash = crypto_1.createHash('sha1');
+        console.log('create request: ', count);
         this._push(payload);
     }
     sendPiece(piece) {
@@ -143,10 +146,11 @@ class Hose extends stream_1.Duplex {
         const self = this;
         process.nextTick(() => {
             self.blockCount--;
-            self.pieceHash.update(block);
-            self.blocks.push(block);
+            self.blocks[begin / DL_SIZE] = block;
             if (!self.blockCount) {
-                self.emit('finished_piece', index, begin, buffer_1.Buffer.concat(self.blocks), self.pieceHash);
+                let resultBuf = buffer_1.Buffer.concat(self.blocks);
+                self.pieceHash.update(resultBuf);
+                self.emit('finished_piece', index, resultBuf, self.pieceHash);
                 self.blocks = [];
             }
         });

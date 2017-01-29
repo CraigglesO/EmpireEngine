@@ -3,15 +3,15 @@
 	"maxPeers": 75,
 	"downloadPriority": "bte",
 	"hashes": [
-		"6b97cab805b88a6741dcc10b078b72582110ce1c"
+		"10db4bdfc10cf0081eb66ce2937a9b728889997c"
 	],
 	"torrents": [
 		{
-			"xt": "urn:btih:6b97cab805b88a6741dcc10b078b72582110ce1c",
+			"xt": "urn:btih:10db4bdfc10cf0081eb66ce2937a9b728889997c",
 			"xl": null,
 			"as": null,
 			"xs": null,
-			"dn": "Childish Gambino - Awaken, My Love! (2016) (MP3 320K)",
+			"dn": "Influence: The Psychology of Persuasion by Rober Cialdini 2014",
 			"kt": null,
 			"mt": null,
 			"tr": [
@@ -20,33 +20,33 @@
 				"udp://tracker.coppersurfer.tk:6969",
 				"udp://public.popcorn-tracker.org:6969"
 			],
-			"infoHash": "6b97cab805b88a6741dcc10b078b72582110ce1c",
+			"infoHash": "10db4bdfc10cf0081eb66ce2937a9b728889997c",
 			"infoHashBuffer": {
 				"type": "Buffer",
 				"data": [
-					107,
-					151,
-					202,
-					184,
-					5,
-					184,
-					138,
-					103,
-					65,
-					220,
-					193,
-					11,
-					7,
-					139,
-					114,
-					88,
-					33,
 					16,
-					206,
-					28
+					219,
+					75,
+					223,
+					193,
+					12,
+					240,
+					8,
+					30,
+					182,
+					108,
+					226,
+					147,
+					122,
+					155,
+					114,
+					136,
+					137,
+					153,
+					124
 				]
 			},
-			"name": "Childish Gambino - Awaken, My Love! (2016) (MP3 320K)",
+			"name": "Influence: The Psychology of Persuasion by Rober Cialdini 2014",
 			"announce": [
 				"udp://tracker.leechers-paradise.org:6969",
 				"udp://zer0day.ch:1337",

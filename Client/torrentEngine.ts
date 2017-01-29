@@ -294,8 +294,9 @@ class torrentHandler extends EventEmitter {
       }
     });
 
-    self.peers[host+port]['hose'].on('finished_piece', (index: number, begin: number, block: Buffer, hash: Hash) => {
+    self.peers[host+port]['hose'].on('finished_piece', (index: number, block: Buffer, hash: Hash) => {
       self._debug('finished piece');
+      console.log('finished piece');
       // Check the hash
       let blockHash = hash.digest('hex');
       let percent = 0;
@@ -310,12 +311,9 @@ class torrentHandler extends EventEmitter {
         // Emit up.
         // self.emit('finished_piece', percent, );
       } else {
+        console.log('failed hash');
         // Remove piece and try again
         self.bitfield.set(self.peers[host+port].piece, false);
-        // Start a new request sequence
-        process.nextTick(() => {
-          self.fetchNewPiece(self.peers[host+port]);
-        });
       }
       console.log('index downloaded: ', index);
       console.log('percent:          ', percent);
