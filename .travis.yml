@@ -6,8 +6,7 @@ notifications:
     on_failure: change
 
 node_js:
-  - "stable"
+  - "6.1"
 
 script:
   - npm run lint+build+test
-  
