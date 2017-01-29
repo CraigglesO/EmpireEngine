@@ -2,7 +2,7 @@
   "name": "Empire",
   "main": "Empire.d.ts",
   "homepage": "",
-  "version": "0.3.23",
+  "version": "0.4.0",
   "globalDevDependencies": {
     "node": "registry:env/node#6.0.0+20170119204930"
   },

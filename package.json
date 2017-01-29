@@ -1,6 +1,6 @@
 {
   "name": "empireengine",
-  "version": "0.3.23",
+  "version": "0.4.0",
   "description": "Let's build a connected world together",
   "main": "./out/Empire.js",
   "scripts": {
