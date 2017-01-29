@@ -17,18 +17,7 @@ const decodeTorrent = function(torrent) {
 }
 
 function _parseTorrent(torrentId) {
-  if (typeof torrentId === 'string' && /^(stream-)?magnet:/.test(torrentId)) {
-    // magnet uri (string)
-    return magnet(torrentId);
-  } else if (typeof torrentId === 'string' && (/^[a-f0-9]{40}$/i.test(torrentId) || /^[a-z2-7]{32}$/i.test(torrentId))) {
-    // info hash (hex/base-32 string)
-    return magnet('magnet:?xt=urn:btih:' + torrentId);
-  } else if (Buffer.isBuffer(torrentId) && torrentId.length === 20) {
-    // info hash (buffer)
-    return magnet('magnet:?xt=urn:btih:' + torrentId.toString('hex'));
-  } else if (Buffer.isBuffer(torrentId)) {
-    return torrent(torrentId);
-  } else if (torrentId && torrentId.infoHash) {
+  if (torrentId && torrentId.infoHash) {
     // parsed torrent (from `parse-torrent`, `parse-torrent-file`, or `magnet-uri`)
     if (typeof torrentId.announce === 'string') {
       return torrent(torrentId);
@@ -38,11 +27,6 @@ function _parseTorrent(torrentId) {
   } else {
     return new Error('Invalid torrent identifier');
   }
-}
-
-//TODO: Parse magnets!
-function magnet(arg) {
-
 }
 
 function torrent(torrent) {

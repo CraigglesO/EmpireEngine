@@ -40,6 +40,7 @@ These are the main modules that make up Empire:
 | [ut-extensions][ut-extensions] | [![][ut-extensions-ti]][ut-extensions-tu] | [![][ut-extensions-ni]][ut-extensions-nu] | Extensions for The Bittorent Protocol
 | [torrent-piece-handler][torrent-piece-handler] | [![][torrent-piece-handler-ti]][torrent-piece-handler-tu] | [![][torrent-piece-handler-ni]][torrent-piece-handler-nu] | Quickly and easily prep for downloads without polluting your code.
 | [binary-bitfield][binary-bitfield] | [![][binary-bitfield-ti]][binary-bitfield-tu] | [![][binary-bitfield-ni]][binary-bitfield-nu] | Track the blocks downloaded
+| [parse-magnet-uri][parse-magnet-uri] | [![][parse-magnet-uri-ti]][parse-magnet-uri-tu] | [![][parse-magnet-uri-ni]][parse-magnet-uri-nu] | Track the blocks downloaded
 
 [EmpireEngine]:    https://github.com/CraigglesO/EmpireEngine
 [EmpireEngine-ti]: https://img.shields.io/travis/CraigglesO/EmpireEngine/master.svg
@@ -71,11 +72,15 @@ These are the main modules that make up Empire:
 [binary-bitfield-ni]: https://img.shields.io/npm/v/binary-bitfield.svg
 [binary-bitfield-nu]: https://npmjs.org/package/binary-bitfield
 
+[parse-magnet-uri]: https://github.com/CraigglesO/parse-magnet-uri
+[parse-magnet-uri-ti]: https://travis-ci.org/CraigglesO/parse-magnet-uri.svg?branch=master
+[parse-magnet-uri-tu]: https://travis-ci.org/CraigglesO/parse-magnet-uri
+[parse-magnet-uri-ni]: https://img.shields.io/npm/v/parse-magnet-uri.svg
+[parse-magnet-uri-nu]: https://npmjs.org/package/parse-magnet-uri
+
 
 ## Peer tracker
 
 ## Hose
-
-## Parse-Magnet-URI
 
 ## ParseTorrent
