@@ -1,4 +1,4 @@
 import Empire from './Empire';
 
 
-let E = new Empire();
+export default Empire;

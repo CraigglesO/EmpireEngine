@@ -1,6 +1,6 @@
 {
-  "name": "empirejs",
-  "version": "0.2.13",
+  "name": "empireengine",
+  "version": "0.3.23",
   "description": "Let's build a connected world together",
   "main": "index.js",
   "scripts": {
@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/CraigglesO/Empire.git"
+    "url": "https://github.com/CraigglesO/EmpireEngine.git"
   },
   "dependencies": {
     "@types/extend": "^2.0.30",
