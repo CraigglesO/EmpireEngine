@@ -2,8 +2,8 @@ import * as test from "blue-tape";
 import Empire from "../Empire";
 
 // ut_metadata tests:
-test("ut_metadata testings..", (t) => {
-  t.plan(6);
+test("Empire Tests", (t) => {
+  t.plan(1);
 
   t.true( true );
 

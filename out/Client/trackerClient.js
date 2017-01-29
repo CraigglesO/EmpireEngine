@@ -1,15 +1,15 @@
-'use strict';
+"use strict";
 const events_1 = require("events");
 const dgram = require("dgram");
 const debug = require("debug");
-debug('trackerClient');
-const writeUInt64BE = require('writeUInt64BE'), ACTION_CONNECT = 0, ACTION_ANNOUNCE = 1, ACTION_SCRAPE = 2, ACTION_ERROR = 3;
+debug("trackerClient");
+const writeUInt64BE = require("writeUInt64BE"), ACTION_CONNECT = 0, ACTION_ANNOUNCE = 1, ACTION_SCRAPE = 2, ACTION_ERROR = 3;
 let connectionIdHigh = 0x417, connectionIdLow = 0x27101980;
-class udpTracker extends events_1.EventEmitter {
+class UdpTracker extends events_1.EventEmitter {
     constructor(trackerHost, port, myPort, infoHash) {
         super();
-        if (!(this instanceof udpTracker))
-            return new udpTracker(trackerHost, port, myPort, infoHash);
+        if (!(this instanceof UdpTracker))
+            return new UdpTracker(trackerHost, port, myPort, infoHash);
         const self = this;
         self.HOST = trackerHost;
         self.HASH = infoHash;
@@ -26,18 +26,18 @@ class udpTracker extends events_1.EventEmitter {
         self.TIMEOUTS = [];
         self.TIMEOUTS_DATE = 0;
         self.TIMEOUT_N = 1;
-        self.server = dgram.createSocket('udp4');
-        self.server.on('listening', function () {
+        self.server = dgram.createSocket("udp4");
+        self.server.on("listening", function () {
             self.scrape();
         });
-        self.server.on('message', function (msg, rinfo) { self.message(msg, rinfo); });
+        self.server.on("message", function (msg, rinfo) { self.message(msg, rinfo); });
         self.server.bind(self.MY_PORT);
     }
     sendPacket(buf) {
         const self = this;
         self.server.send(buf, 0, buf.length, self.PORT, self.HOST, (err) => {
             if (err) {
-                self.emit('error', err);
+                self.emit("error", err);
             }
         });
     }
@@ -70,7 +70,7 @@ class udpTracker extends events_1.EventEmitter {
             buf.writeUInt32BE(connectionIdLow, 4);
             buf.writeUInt32BE(ACTION_SCRAPE, 8);
             buf.writeUInt32BE(self.TRANSACTION_ID, 12);
-            buf.write(self.HASH, 16, 20, 'hex');
+            buf.write(self.HASH, 16, 20, "hex");
             self.sendPacket(buf);
         }
     }
@@ -86,8 +86,8 @@ class udpTracker extends events_1.EventEmitter {
             buf.writeUInt32BE(connectionIdLow, 4);
             buf.writeUInt32BE(ACTION_ANNOUNCE, 8);
             buf.writeUInt32BE(self.TRANSACTION_ID, 12);
-            buf.write(self.HASH, 16, 20, 'hex');
-            buf.write('-EM0012-ABCDEFGHIJKL', 36, 20);
+            buf.write(self.HASH, 16, 20, "hex");
+            buf.write("-EM0012-ABCDEFGHIJKL", 36, 20);
             writeUInt64BE(buf, self.DOWNLOADED, 56);
             writeUInt64BE(buf, self.LEFT, 64);
             writeUInt64BE(buf, self.UPLOADED, 72);
@@ -118,7 +118,7 @@ class udpTracker extends events_1.EventEmitter {
         }
         else if (action === ACTION_SCRAPE) {
             let seeders = buf.readUInt32BE(8), completed = buf.readUInt32BE(12), leechers = buf.readUInt32BE(16);
-            self.emit('scrape', seeders, completed, leechers, self.timeTillNextScrape());
+            self.emit("scrape", seeders, completed, leechers, self.timeTillNextScrape());
             self.announce();
         }
         else if (action === ACTION_ANNOUNCE) {
@@ -127,12 +127,12 @@ class udpTracker extends events_1.EventEmitter {
                 let address = `${buf.readUInt8(i)}.${buf.readUInt8(i + 1)}.${buf.readUInt8(i + 2)}.${buf.readUInt8(i + 3)}:${buf.readUInt16BE(i + 4)}`;
                 addresses.push(address);
             }
-            self.emit('announce', interval, leechers, seeders, addresses);
+            self.emit("announce", interval, leechers, seeders, addresses);
             self.EVENT = 0;
         }
         else if (action === ACTION_ERROR) {
             let errorResponce = buf.slice(8).toString();
-            self.emit('error', errorResponce);
+            self.emit("error", errorResponce);
         }
     }
     update(left, uploaded, downloaded, port) {
@@ -160,7 +160,7 @@ class udpTracker extends events_1.EventEmitter {
         if (port)
             this.PORT = port;
         this.EVENT = 2;
-        console.log('start (tracker)');
+        console.log("start (tracker)");
         this.announce();
     }
     stop(left, uploaded, downloaded, port) {
@@ -200,14 +200,14 @@ class udpTracker extends events_1.EventEmitter {
         }
     }
 }
-exports.udpTracker = udpTracker;
-class wssTracker extends events_1.EventEmitter {
+exports.UdpTracker = UdpTracker;
+class WssTracker extends events_1.EventEmitter {
     constructor() {
         super();
-        if (!(this instanceof wssTracker))
-            return new wssTracker();
+        if (!(this instanceof WssTracker))
+            return new WssTracker();
         const self = this;
     }
 }
-exports.wssTracker = wssTracker;
+exports.WssTracker = WssTracker;
 //# sourceMappingURL=trackerClient.js.map

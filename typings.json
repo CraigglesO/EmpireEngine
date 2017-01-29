@@ -1,0 +1,12 @@
+{
+  "name": "Empire",
+  "main": "Empire.d.ts",
+  "homepage": "",
+  "version": "0.3.23",
+  "globalDevDependencies": {
+    "node": "registry:env/node#6.0.0+20170119204930"
+  },
+  "devDependencies": {
+    "blue-tape": "registry:npm/blue-tape#0.2.0+20160723033700"
+  }
+}

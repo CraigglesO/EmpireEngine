@@ -1,8 +1,8 @@
-import * as fs from 'fs';
-import { Writable } from 'stream';
-import * as util from 'util';
+import * as fs from "fs";
+import { Writable } from "stream";
+import * as util from "util";
 
-class readLine extends Writable {
+class ReadLine extends Writable {
   store:   Array<Buffer>;
   newLine: Boolean;
   constructor() {
@@ -15,7 +15,7 @@ class readLine extends Writable {
   }
 
   _write(chunk: Buffer, encoding?: string, next?: Function) {
-    this.emit('add', chunk.toString());
+    this.emit("add", chunk.toString());
 
     // for (let i = 0; i < chunk.length; i++) {
     //   if (chunk[i] == 10 || chunk[i] == 13) {
@@ -92,4 +92,4 @@ class readLine extends Writable {
 // };
 // util.inherits(readLine, EventEmitter);
 
-export default readLine;
+export default ReadLine;

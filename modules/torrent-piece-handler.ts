@@ -31,9 +31,9 @@ class TPH {
     self.lastParts     = Math.floor(lastPieceSize / DL_SIZE);
     self.leftover      = lastPieceSize % DL_SIZE;
 
-    console.log('PIECE SIZE: ', self.pieceSize);
-    console.log('PIECE COUNT: ', self.pieceCount);
-    console.log('PARTS: ', self.parts);
+    console.log("PIECE SIZE: ", self.pieceSize);
+    console.log("PIECE COUNT: ", self.pieceCount);
+    console.log("PARTS: ", self.parts);
   }
 
   prepareRequest(pieceNumber: number, cb: Function) {

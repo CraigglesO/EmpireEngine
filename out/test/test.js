@@ -1,7 +1,7 @@
 "use strict";
 const test = require("blue-tape");
-test("ut_metadata testings..", (t) => {
-    t.plan(6);
+test("Empire Tests", (t) => {
+    t.plan(1);
     t.true(true);
     t.end();
 });

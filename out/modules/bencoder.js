@@ -1,14 +1,14 @@
-'use strict';
+"use strict";
 class Decode {
     constructor(data, start, end, encoding) {
         if (data == null || data.length === 0) {
             return null;
         }
-        if (typeof start !== 'number' && encoding == null) {
+        if (typeof start !== "number" && encoding == null) {
             encoding = start;
             start = undefined;
         }
-        if (typeof end !== 'number' && encoding == null) {
+        if (typeof end !== "number" && encoding == null) {
             encoding = end;
             end = undefined;
         }
@@ -21,7 +21,7 @@ class Decode {
         return this.next();
     }
     next() {
-        switch (this['data'][this['position']]) {
+        switch (this["data"][this["position"]]) {
             case 0x64:
                 return this.dictionary();
             case 0x6C:
@@ -33,21 +33,21 @@ class Decode {
         }
     }
     find(chr) {
-        var i = this.position;
-        var c = this.data.length;
-        var d = this.data;
+        let i = this.position;
+        let c = this.data.length;
+        let d = this.data;
         while (i < c) {
             if (d[i] === chr)
                 return i;
             i++;
         }
-        throw new Error('Invalid data: Missing delimiter "' +
-            String.fromCharCode(chr) + '" [0x' +
-            chr.toString(16) + ']');
+        throw new Error("Invalid data: Missing delimiter \"" +
+            String.fromCharCode(chr) + "\" [0x" +
+            chr.toString(16) + "]");
     }
     dictionary() {
         this.position++;
-        var dict = {};
+        let dict = {};
         while (this.data[this.position] !== 0x65) {
             dict[this.buffer()] = this.next();
         }
@@ -56,7 +56,7 @@ class Decode {
     }
     list() {
         this.position++;
-        var lst = [];
+        let lst = [];
         while (this.data[this.position] !== 0x65) {
             lst.push(this.next());
         }
@@ -64,10 +64,10 @@ class Decode {
         return lst;
     }
     integer() {
-        var end = this.find(0x65);
-        var number = getIntFromBuffer(this.data, this.position + 1, end);
-        this.position += end + 1 - this.position;
-        return number;
+        let ending = this.find(0x65);
+        let result = getIntFromBuffer(this.data, this.position + 1, ending);
+        this.position += ending + 1 - this.position;
+        return result;
     }
     buffer() {
         let sep = this.find(0x3A);
@@ -82,13 +82,13 @@ class Decode {
 exports.Decode = Decode;
 class Encode {
     constructor(data, buffer, offset) {
-        this.buffE = new Buffer('e');
-        this.buffD = new Buffer('d');
-        this.buffL = new Buffer('l');
+        this.buffE = new Buffer("e");
+        this.buffD = new Buffer("d");
+        this.buffL = new Buffer("l");
         this.bytes = -1;
         this._floatConversionDetected = false;
-        var buffers = [];
-        var result = null;
+        let buffers = [];
+        let result = null;
         this._encode(buffers, data);
         result = Buffer.concat(buffers);
         this.bytes = result.length;
@@ -100,7 +100,7 @@ class Encode {
     }
     _encode(buffers, data) {
         if (Buffer.isBuffer(data)) {
-            buffers.push(new Buffer(data.length + ':'));
+            buffers.push(new Buffer(data.length + ":"));
             buffers.push(data);
             return;
         }
@@ -108,43 +108,43 @@ class Encode {
             return;
         }
         switch (typeof data) {
-            case 'string':
+            case "string":
                 this.buffer(buffers, data);
                 break;
-            case 'number':
+            case "number":
                 this.number(buffers, data);
                 break;
-            case 'object':
+            case "object":
                 data.constructor === Array
                     ? this.list(buffers, data)
                     : this.dict(buffers, data);
                 break;
-            case 'boolean':
+            case "boolean":
                 this.number(buffers, data ? 1 : 0);
                 break;
         }
     }
     buffer(buffers, data) {
-        buffers.push(new Buffer(Buffer.byteLength(data) + ':' + data));
+        buffers.push(new Buffer(Buffer.byteLength(data) + ":" + data));
     }
     number(buffers, data) {
-        var maxLo = 0x80000000;
-        var hi = (data / maxLo) << 0;
-        var lo = (data % maxLo) << 0;
-        var val = hi * maxLo + lo;
-        buffers.push(new Buffer('i' + val + 'e'));
+        let maxLo = 0x80000000;
+        let hi = (data / maxLo) << 0;
+        let lo = (data % maxLo) << 0;
+        let val = hi * maxLo + lo;
+        buffers.push(new Buffer("i" + val + "e"));
         if (val !== data && !this._floatConversionDetected) {
             this._floatConversionDetected = true;
-            console.warn('WARNING: Possible data corruption detected with value "' + data + '":', 'Bencoding only defines support for integers, value was converted to "' + val + '"');
+            console.warn("WARNING: Possible data corruption detected with value \"" + data + "\":", "Bencoding only defines support for integers, value was converted to \"" + val + "\"");
             console.trace();
         }
     }
     dict(buffers, data) {
         buffers.push(this.buffD);
-        var j = 0;
-        var k;
-        var keys = Object.keys(data).sort();
-        var kl = keys.length;
+        let j = 0;
+        let k;
+        let keys = Object.keys(data).sort();
+        let kl = keys.length;
         for (; j < kl; j++) {
             k = keys[j];
             if (data[k] == null)
@@ -155,8 +155,8 @@ class Encode {
         buffers.push(this.buffE);
     }
     list(buffers, data) {
-        var i = 0;
-        var c = data.length;
+        let i = 0;
+        let c = data.length;
         buffers.push(this.buffL);
         for (; i < c; i++) {
             if (data[i] == null)
@@ -186,7 +186,7 @@ function getIntFromBuffer(buffer, start, end) {
         if (num === 46) {
             break;
         }
-        throw new Error('not a number: buffer[' + i + '] = ' + num);
+        throw new Error("not a number: buffer[" + i + "] = " + num);
     }
     return sum * sign;
 }

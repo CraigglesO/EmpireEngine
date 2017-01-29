@@ -1,32 +1,32 @@
-'use strict';
+"use strict";
 
 class Decode {
 
-  position: number
-  encoding: string
-  data:     Buffer
-  bytes:    number
+  position: number;
+  encoding: string;
+  data:     Buffer;
+  bytes:    number;
   constructor(data, start?: number, end?: number, encoding?: string) {
     if (data == null || data.length === 0) {
-      return null
+      return null;
     }
 
-    if (typeof start !== 'number' && encoding == null) {
-      encoding = start
-      start = undefined
+    if (typeof start !== "number" && encoding == null) {
+      encoding = start;
+      start = undefined;
     }
 
-    if (typeof end !== 'number' && encoding == null) {
-      encoding = end
-      end = undefined
+    if (typeof end !== "number" && encoding == null) {
+      encoding = end;
+      end = undefined;
     }
 
-    this.position = 0
-    this.encoding = encoding || null
+    this.position = 0;
+    this.encoding = encoding || null;
 
     this.data = !(Buffer.isBuffer(data))
       ? new Buffer(data)
-      : data.slice(start, end)
+      : data.slice(start, end);
 
     this.bytes = this.data.length;
 
@@ -34,22 +34,22 @@ class Decode {
   }
 
   next() {
-    switch (this['data'][this['position']]) {
+    switch (this["data"][this["position"]]) {
       case 0x64:
         return this.dictionary();
       case 0x6C:
-        return this.list()
+        return this.list();
       case 0x69:
-        return this.integer()
+        return this.integer();
       default:
-        return this.buffer()
+        return this.buffer();
     }
   }
 
   find(chr) {
-    var i = this.position;
-    var c = this.data.length;
-    var d = this.data;
+    let i = this.position;
+    let c = this.data.length;
+    let d = this.data;
 
     while (i < c) {
       if (d[i] === chr) return i;
@@ -57,16 +57,16 @@ class Decode {
     }
 
     throw new Error(
-      'Invalid data: Missing delimiter "' +
-      String.fromCharCode(chr) + '" [0x' +
-      chr.toString(16) + ']'
+      "Invalid data: Missing delimiter \"" +
+      String.fromCharCode(chr) + "\" [0x" +
+      chr.toString(16) + "]"
     );
   }
 
   dictionary() {
     this.position++;
 
-    var dict = {};
+    let dict = {};
 
     while (this.data[this.position] !== 0x65) {
       dict[this.buffer()] = this.next();
@@ -80,7 +80,7 @@ class Decode {
   list() {
     this.position++;
 
-    var lst = [];
+    let lst = [];
 
     while (this.data[this.position] !== 0x65) {
       lst.push(this.next());
@@ -92,24 +92,24 @@ class Decode {
   }
 
   integer() {
-    var end = this.find(0x65);
-    var number = getIntFromBuffer(this.data, this.position + 1, end);
+    let ending = this.find(0x65);
+    let result = getIntFromBuffer(this.data, this.position + 1, ending);
 
-    this.position += end + 1 - this.position;
+    this.position += ending + 1 - this.position;
 
-    return number;
+    return result;
   }
 
   buffer() {
     let sep = this.find(0x3A);
-    let length = getIntFromBuffer(this.data, this.position, sep)
-    let end = ++sep + length
+    let length = getIntFromBuffer(this.data, this.position, sep);
+    let end = ++sep + length;
 
-    this.position = end
+    this.position = end;
 
     return this.encoding
       ? this.data.toString(this.encoding, sep, end)
-      : this.data.slice(sep, end)
+      : this.data.slice(sep, end);
   }
 }
 
@@ -121,21 +121,21 @@ class Encode {
   bytes:                    number;
   _floatConversionDetected: Boolean;
   constructor(data, buffer?: Buffer, offset?: number) {
-    this.buffE                    = new Buffer('e');
-    this.buffD                    = new Buffer('d');
-    this.buffL                    = new Buffer('l');
+    this.buffE                    = new Buffer("e");
+    this.buffD                    = new Buffer("d");
+    this.buffL                    = new Buffer("l");
     this.bytes                    = -1;
     this._floatConversionDetected = false;
 
-    var buffers = []
-    var result = null
+    let buffers = [];
+    let result = null;
 
-    this._encode(buffers, data)
-    result = Buffer.concat(buffers)
-    this.bytes = result.length
+    this._encode(buffers, data);
+    result = Buffer.concat(buffers);
+    this.bytes = result.length;
 
     if (Buffer.isBuffer(buffer)) {
-      result.copy(buffer, offset)
+      result.copy(buffer, offset);
       return buffer;
     }
 
@@ -144,7 +144,7 @@ class Encode {
 
   _encode(buffers: Array<Buffer>, data) {
     if (Buffer.isBuffer(data)) {
-      buffers.push(new Buffer(data.length + ':'));
+      buffers.push(new Buffer(data.length + ":"));
       buffers.push(data);
       return;
     }
@@ -152,40 +152,40 @@ class Encode {
     if (data == null) { return; }
 
     switch (typeof data) {
-      case 'string':
+      case "string":
         this.buffer(buffers, data);
         break;
-      case 'number':
+      case "number":
         this.number(buffers, data);
         break;
-      case 'object':
+      case "object":
         data.constructor === Array
           ? this.list(buffers, data)
           : this.dict(buffers, data);
         break;
-      case 'boolean':
+      case "boolean":
         this.number(buffers, data ? 1 : 0);
         break;
     }
   }
 
   buffer(buffers, data) {
-    buffers.push(new Buffer(Buffer.byteLength(data) + ':' + data));
+    buffers.push(new Buffer(Buffer.byteLength(data) + ":" + data));
   }
 
   number(buffers: Array<Buffer>, data) {
-    var maxLo = 0x80000000;
-    var hi = (data / maxLo) << 0;
-    var lo = (data % maxLo) << 0;
-    var val = hi * maxLo + lo;
+    let maxLo = 0x80000000;
+    let hi = (data / maxLo) << 0;
+    let lo = (data % maxLo) << 0;
+    let val = hi * maxLo + lo;
 
-    buffers.push(new Buffer('i' + val + 'e'));
+    buffers.push(new Buffer("i" + val + "e"));
 
     if (val !== data && !this._floatConversionDetected) {
       this._floatConversionDetected = true;
       console.warn(
-        'WARNING: Possible data corruption detected with value "' + data + '":',
-        'Bencoding only defines support for integers, value was converted to "' + val + '"'
+        "WARNING: Possible data corruption detected with value \"" + data + "\":",
+        "Bencoding only defines support for integers, value was converted to \"" + val + "\""
       );
       console.trace();
     }
@@ -194,11 +194,11 @@ class Encode {
   dict(buffers: Array<Buffer>, data) {
     buffers.push(this.buffD);
 
-    var j = 0;
-    var k;
+    let j = 0;
+    let k;
 
-    var keys = Object.keys(data).sort();
-    var kl = keys.length;
+    let keys = Object.keys(data).sort();
+    let kl = keys.length;
 
     for (; j < kl; j++) {
       k = keys[j];
@@ -211,8 +211,8 @@ class Encode {
   }
 
   list(buffers: Array<Buffer>, data) {
-    var i = 0;
-    var c = data.length;
+    let i = 0;
+    let c = data.length;
     buffers.push(this.buffL);
 
     for (; i < c; i++) {
@@ -225,13 +225,13 @@ class Encode {
 }
 
 function getIntFromBuffer (buffer: Buffer, start: Number, end: Number) {
-  let sum = 0
-  let sign = 1
+  let sum = 0;
+  let sign = 1;
 
   for (let i = start; i < end; i++) {
     let num = buffer[i];
     if (num < 58 && num >= 48) {
-      sum = sum * 10 + (num - 48)
+      sum = sum * 10 + (num - 48);
       continue;
     }
     if (i === start && num === 43) { // +
@@ -245,7 +245,7 @@ function getIntFromBuffer (buffer: Buffer, start: Number, end: Number) {
       // its a float. break here.
       break;
     }
-    throw new Error('not a number: buffer[' + i + '] = ' + num);
+    throw new Error("not a number: buffer[" + i + "] = " + num);
   }
   return sum * sign;
 }

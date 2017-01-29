@@ -1,17 +1,17 @@
 function parseTracker(trackerLink: string) {
   let result = {
-    type: '',
-    host: '',
+    type: "",
+    host: "",
     port: 0
   };
 
   let announce = false;
-  result.type = trackerLink.split(':')[0];
-  result.host = trackerLink.split(':')[1];
+  result.type = trackerLink.split(":")[0];
+  result.host = trackerLink.split(":")[1];
   result.host = result.host.slice(2);
-  let p       = trackerLink.split(':')[2];
+  let p       = trackerLink.split(":")[2];
   if (p !== undefined)
-    result.port = Number(p.split('\/')[0]);
+    result.port = Number(p.split("/")[0]);
   else
     result.port = 80;
 
