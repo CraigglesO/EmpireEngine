@@ -118,9 +118,7 @@ class Hose extends stream_1.Duplex {
         const self = this;
         self.blockCount = count;
         self.busy = true;
-        console.log("create new hash");
         self.pieceHash = crypto_1.createHash("sha1");
-        console.log("create request: ", count);
         this._push(payload);
     }
     sendPiece(piece) {
@@ -163,8 +161,7 @@ class Hose extends stream_1.Duplex {
             let obj = bencode.decode(payload);
             let m = obj.m;
             if (m["ut_metadata"]) {
-                console.log(obj);
-                self.ext[UT_METADATA] = new ut_extensions_1.utMetadata(obj.metadata_size, self.infoHash);
+                self.ext[UT_METADATA] = new ut_extensions_1.UTmetadata(obj.metadata_size, self.infoHash);
                 self.ext["ut_metadata"] = m["ut_metadata"];
                 self.ext[UT_METADATA].on("next", (piece) => {
                     let request = { "msg_type": 0, "piece": piece }, prepRequest = EXTENDED, requestEn = bencode.encode(request), code = new buffer_1.Buffer(1);
@@ -178,7 +175,7 @@ class Hose extends stream_1.Duplex {
                 });
             }
             if (m["ut_pex"]) {
-                self.ext[UT_PEX] = new ut_extensions_1.utPex();
+                self.ext[UT_PEX] = new ut_extensions_1.UTpex();
                 self.ext["ut_pex"] = m["ut_pex"];
             }
         }

@@ -42,7 +42,7 @@ class Empire extends Writable {
 
   importTorrentFile(file: string) {
     const self = this;
-    // file = file.slice(0,file.length - 2);
+    // File = file.slice(0,file.length - 2);
     file = file.trim();
     // If Magnet file, parse it:
     let torrent = null;

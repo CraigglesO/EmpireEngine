@@ -3,15 +3,15 @@
 	"maxPeers": 75,
 	"downloadPriority": "bte",
 	"hashes": [
-		"10db4bdfc10cf0081eb66ce2937a9b728889997c"
+		"481661c3d4d6c5438bc22a90e4d0978bda690387"
 	],
 	"torrents": [
 		{
-			"xt": "urn:btih:10db4bdfc10cf0081eb66ce2937a9b728889997c",
+			"xt": "urn:btih:481661c3d4d6c5438bc22a90e4d0978bda690387",
 			"xl": null,
 			"as": null,
 			"xs": null,
-			"dn": "Influence: The Psychology of Persuasion by Rober Cialdini 2014",
+			"dn": "The Chainsmokers Ft Halsey -Closer MP3 Download, 2016",
 			"kt": null,
 			"mt": null,
 			"tr": [
@@ -20,33 +20,33 @@
 				"udp://tracker.coppersurfer.tk:6969",
 				"udp://public.popcorn-tracker.org:6969"
 			],
-			"infoHash": "10db4bdfc10cf0081eb66ce2937a9b728889997c",
+			"infoHash": "481661c3d4d6c5438bc22a90e4d0978bda690387",
 			"infoHashBuffer": {
 				"type": "Buffer",
 				"data": [
-					16,
-					219,
-					75,
-					223,
-					193,
-					12,
-					240,
-					8,
-					30,
-					182,
-					108,
-					226,
-					147,
-					122,
-					155,
-					114,
-					136,
-					137,
-					153,
-					124
+					72,
+					22,
+					97,
+					195,
+					212,
+					214,
+					197,
+					67,
+					139,
+					194,
+					42,
+					144,
+					228,
+					208,
+					151,
+					139,
+					218,
+					105,
+					3,
+					135
 				]
 			},
-			"name": "Influence: The Psychology of Persuasion by Rober Cialdini 2014",
+			"name": "The Chainsmokers Ft Halsey -Closer MP3 Download, 2016",
 			"announce": [
 				"udp://tracker.leechers-paradise.org:6969",
 				"udp://zer0day.ch:1337",

@@ -5,7 +5,7 @@
 import { Duplex } from "stream";
 import { Buffer } from "buffer";
 import { Hash, createHash } from "crypto";
-import { utMetadata, utPex } from "../modules/ut-extensions";
+import { UTmetadata, UTpex } from "../modules/ut-extensions";
 import * as debug from "debug";
 debug("hose");
 
@@ -215,9 +215,7 @@ class Hose extends Duplex {
     self.blockCount = count;
     self.busy       = true;
     // Create a new hash to ensure authenticity
-    console.log("create new hash");
     self.pieceHash  = createHash("sha1");
-    console.log("create request: ", count);
     this._push(payload);
   }
   // piece: <len=0009+X><id=7><index><begin><block>
@@ -284,8 +282,7 @@ class Hose extends Duplex {
       let m = obj.m;
       if (m["ut_metadata"]) {
         // Handle the ut_metadata protocol here:
-        console.log(obj);
-        self.ext[UT_METADATA]   = new utMetadata(obj.metadata_size, self.infoHash);
+        self.ext[UT_METADATA]   = new UTmetadata(obj.metadata_size, self.infoHash);
         self.ext["ut_metadata"] = m["ut_metadata"];
 
         // Prep emitter responces:
@@ -307,7 +304,7 @@ class Hose extends Duplex {
       }
       if (m["ut_pex"]) {
         // Handle the PEX protocol here
-        self.ext[UT_PEX]   = new utPex();
+        self.ext[UT_PEX]   = new UTpex();
         self.ext["ut_pex"] = m["ut_pex"];
 
         // Prep emitter responces:

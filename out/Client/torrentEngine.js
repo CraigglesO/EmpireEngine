@@ -38,6 +38,7 @@ class TorrentHandler extends events_1.EventEmitter {
         self.trackers = {};
         self.trackerData = {};
         self.peers = {};
+        self.peerCount = 0;
         self.hoses = {};
         self.connectQueue = [];
         self.haveStack = [];
@@ -59,12 +60,11 @@ class TorrentHandler extends events_1.EventEmitter {
         self.incomingWrtcPeers.listen(9001);
         self.torrent["announce"].forEach((tracker) => {
             let pt = parse_p2p_tracker_1.default(tracker);
-            console.log(pt);
             if (pt.type === "udp") {
-                self.trackers[tracker] = new trackerClient_1.udpTracker(pt.host, pt.port, self.port, self.torrent.infoHash);
+                self.trackers[tracker] = new trackerClient_1.UdpTracker(pt.host, pt.port, self.port, self.torrent.infoHash);
             }
             else {
-                self.trackers[tracker] = new trackerClient_1.wssTracker();
+                self.trackers[tracker] = new trackerClient_1.WssTracker();
             }
             self.trackers[tracker].on("announce", (interval, leechers, seeders, peers) => {
                 self.connectQueue = self.connectQueue.concat(peers);
@@ -85,7 +85,7 @@ class TorrentHandler extends events_1.EventEmitter {
     }
     newConnectionRequests() {
         const self = this;
-        while ((self.peers.length || 0) < MAX_PEERS && (self.connectQueue.length)) {
+        while (self.peerCount < MAX_PEERS && (self.connectQueue.length)) {
             let peer = self.connectQueue.shift().split(":");
             self.createPeer(Number(peer[1]), peer[0], "tcp");
         }
@@ -126,6 +126,8 @@ class TorrentHandler extends events_1.EventEmitter {
     }
     createPeer(port, host, type) {
         const self = this;
+        console.log('creating new peer');
+        self.peerCount++;
         self.peers[host + port] = { port, family: "ipv4", hose: new Hose_1.default(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: 0, mode: 0 };
         if (type === "tcp")
             self.peers[host + port].socket = net_1.connect(port, host);
@@ -145,6 +147,7 @@ class TorrentHandler extends events_1.EventEmitter {
         self.peers[host + port].socket.on("close", () => {
             self.peers[host + port] = null;
             delete self.peers[host + port];
+            self.peerCount--;
             self.newConnectionRequests();
         });
         self.peers[host + port]["hose"].on("metadata", (torrent) => {
@@ -183,6 +186,7 @@ class TorrentHandler extends events_1.EventEmitter {
         self.peers[host + port]["hose"].on("finished_piece", (index, block, hash) => {
             self._debug("finished piece");
             console.log("finished piece");
+            console.log("peerCount: ", self.peerCount);
             let blockHash = hash.digest("hex");
             let percent = 0;
             if (blockHash === self.torrent.pieces[index]) {
@@ -238,10 +242,6 @@ class TorrentHandler extends events_1.EventEmitter {
     finish() {
         const self = this;
         console.log("DONE!");
-        for (let tracker in self.trackers) {
-            if (!self.trackers[tracker + ":failure"])
-                self.trackers[tracker].completed(self.torrent.left, self.torrent.uploaded, self.torrent.downloaded);
-        }
     }
     cleanupSeeders() {
         const self = this;

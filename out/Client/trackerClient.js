@@ -160,7 +160,6 @@ class UdpTracker extends events_1.EventEmitter {
         if (port)
             this.PORT = port;
         this.EVENT = 2;
-        console.log("start (tracker)");
         this.announce();
     }
     stop(left, uploaded, downloaded, port) {

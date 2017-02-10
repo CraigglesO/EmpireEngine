@@ -235,7 +235,6 @@ class UdpTracker extends EventEmitter {
     if (port)
       this.PORT     = port;
     this.EVENT      = 2;
-    console.log("start (tracker)");
     this.announce();
   }
 
