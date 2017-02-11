@@ -1,3 +1,3 @@
-import Empire from './Empire';
+import Empire from "./Empire";
 
 const e = new Empire();

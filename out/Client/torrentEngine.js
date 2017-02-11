@@ -93,7 +93,7 @@ class TorrentHandler extends events_1.EventEmitter {
     createIncomingPeer(socket) {
         const self = this;
         let host = (socket.remoteAddress) ? socket.remoteAddress : socket.host, port = (socket.remotePort) ? socket.remotePort : socket.port, family = (socket.remoteFamily) ? socket.remoteFamily : socket.family, hose = self.hoses[host] = new Hose_1.default(self.torrent.infoHash, self.peerID);
-        self.peers[host + port] = { port, family, hose, socket, bitfield: "00", position: 0, piece: 0, mode: 2 };
+        self.peers[host + port] = { port, family, hose, socket, bitfield: "00", position: 0, piece: (-1), mode: 2, activeCount: 0 };
         socket.pipe(hose).pipe(socket);
         hose.on("handshake", (infoHash, peerID) => {
             if (self.torrent.infoHash !== infoHash.toString("hex"))
@@ -126,9 +126,9 @@ class TorrentHandler extends events_1.EventEmitter {
     }
     createPeer(port, host, type) {
         const self = this;
-        console.log('creating new peer');
+        console.log("creating new peer");
         self.peerCount++;
-        self.peers[host + port] = { port, family: "ipv4", hose: new Hose_1.default(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: (-1), mode: 0 };
+        self.peers[host + port] = { port, family: "ipv4", hose: new Hose_1.default(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: (-1), mode: 0, activeCount: 0 };
         if (type === "tcp")
             self.peers[host + port].socket = net_1.connect(port, host);
         else if (type === "webrtc")
@@ -245,9 +245,9 @@ class TorrentHandler extends events_1.EventEmitter {
         for (let host in self.peers) {
             if (self.peers[host].mode === 3) {
                 self.peers[host]["hose"].removeMeta();
-                self.peers[host].mode = 1;
-                self.fetchNewPiece(self.peers[host]);
             }
+            self.peers[host].mode = 1;
+            self.fetchNewPiece(self.peers[host]);
         }
     }
     finish() {

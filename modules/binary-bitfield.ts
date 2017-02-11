@@ -124,7 +124,6 @@ class BinaryBitfield {
     }
     this.percent = Math.round((oneCount / p.length) * 100) / 100;
     if (this.percent === 1 && oneCount !== p.length) {
-      console.log('almost there..');
       this.percent = 0.99;
     }
     return this.percent;

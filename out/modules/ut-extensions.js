@@ -1,7 +1,7 @@
 "use strict";
 const events_1 = require("events");
 const crypto_1 = require("crypto");
-const bencode = require("bencode"), compact2string = require("compact2string"), string2compact = require('string2compact'), PACKET_SIZE = 16384, UT_PEX = 1, UT_METADATA = 2;
+const bencode = require("bencode"), compact2string = require("compact2string"), string2compact = require("string2compact"), PACKET_SIZE = 16384, UT_PEX = 1, UT_METADATA = 2;
 class UTmetadata extends events_1.EventEmitter {
     constructor(metaDataSize, infoHash) {
         super();
@@ -83,19 +83,19 @@ class UTpex extends events_1.EventEmitter {
         }
     }
     addPeer(peers) {
-        let p = string2compact.multi(peers);
+        let p = string2compact(peers);
         this.added.push(p);
     }
     addPeer6(peers) {
-        let p = string2compact.multi(peers);
+        let p = string2compact(peers);
         this.added6.push(p);
     }
     dropPeer(peers) {
-        let p = string2compact.multi(peers);
+        let p = string2compact(peers);
         this.dropped.push(p);
     }
     dropPeer6(peers) {
-        let p = string2compact.multi(peers);
+        let p = string2compact(peers);
         this.dropped6.push(p);
     }
 }

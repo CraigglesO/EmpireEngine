@@ -179,7 +179,7 @@ class TorrentHandler extends EventEmitter {
         family = (socket.remoteFamily)  ? socket.remoteFamily  : socket.family,
         hose   = self.hoses[host] = new Hose(self.torrent.infoHash, self.peerID);
     // Create the peer (MODES: 0 - handshake; 1 - downloading; 2 - uploading; 3 - metadata)
-    self.peers[host + port] = { port, family, hose, socket, bitfield: "00", position: 0, piece: 0, mode: 2 };
+    self.peers[host + port] = { port, family, hose, socket, bitfield: "00", position: 0, piece: (-1), mode: 2, activeCount: 0 };
     socket.pipe(hose).pipe(socket);
     // TODO: SET BITFIELDDL DURING DOWNLOAD
     hose.on("handshake", (infoHash: Buffer, peerID: string) => {
@@ -211,6 +211,7 @@ class TorrentHandler extends EventEmitter {
 
     hose.on("have", (pieceIndex: number) => {
       // TODO: If new piece and not a seeder, switch to download phase and grab
+
     });
 
     self.peers[host + port].socket.on("close", () => {
@@ -223,10 +224,10 @@ class TorrentHandler extends EventEmitter {
 
   createPeer(port: number, host: string, type?: string) {
     const self = this;
-    console.log('creating new peer');
+    console.log("creating new peer");
     self.peerCount++;
     // Create the peer (MODES: 0 - handshake; 1 - downloading; 2 - uploading; 3 - metadata)
-    self.peers[host + port] = { port, family: "ipv4", hose: new Hose(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: (-1), mode: 0 }; // [port, IPV-family, hose, socket, Bitfield]
+    self.peers[host + port] = { port, family: "ipv4", hose: new Hose(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: (-1), mode: 0, activeCount: 0 };
     if (type === "tcp")
       self.peers[host + port].socket = connect(port, host);
     else if (type === "webrtc")
@@ -237,6 +238,7 @@ class TorrentHandler extends EventEmitter {
     });
 
     self.peers[host + port].socket.on("error", (err) => {
+
       // Destroy the hose and delete the Object
       self.peers[host + port].hose.close();
       self.peers[host + port].socket.destroy();
@@ -246,6 +248,7 @@ class TorrentHandler extends EventEmitter {
     });
 
     self.peers[host + port].socket.on("close", () => {
+
       // Destroy the hose and delete the Object
       self.peers[host + port] = null;
       delete self.peers[host + port];
@@ -375,11 +378,11 @@ class TorrentHandler extends EventEmitter {
       if (self.peers[host].mode === 3) {
         // Kill the metadata instance
         self.peers[host]["hose"].removeMeta();
-        // Change the mode
-        self.peers[host].mode = 1;
-        // Fetch new pieces
-        self.fetchNewPiece(self.peers[host]);
       }
+      // Change the mode
+      self.peers[host].mode = 1;
+      // Fetch new pieces
+      self.fetchNewPiece(self.peers[host]);
     }
   }
 

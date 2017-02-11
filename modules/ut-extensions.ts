@@ -4,7 +4,7 @@ import { Hash, createHash } from "crypto";
 
 const bencode        = require("bencode"),
       compact2string = require("compact2string"),
-      string2compact = require('string2compact'),
+      string2compact = require("string2compact"),
       PACKET_SIZE    = 16384,
       UT_PEX         = 1,
       UT_METADATA    = 2;
@@ -159,22 +159,20 @@ class UTpex extends EventEmitter {
   }
 
   addPeer (peers: Array<string>) {
-    let p = string2compact.multi(peers);
+    let p = string2compact(peers);
     this.added.push(p);
   }
-
   addPeer6 (peers: Array<string>) {
-    let p = string2compact.multi(peers);
+    let p = string2compact(peers);
     this.added6.push(p);
   }
 
   dropPeer (peers: Array<string>) {
-    let p = string2compact.multi(peers);
+    let p = string2compact(peers);
     this.dropped.push(p);
   }
-
   dropPeer6 (peers: Array<string>) {
-    let p = string2compact.multi(peers);
+    let p = string2compact(peers);
     this.dropped6.push(p);
   }
 }
