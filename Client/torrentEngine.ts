@@ -144,7 +144,6 @@ class TorrentHandler extends EventEmitter {
       self.trackers[tracker].on("announce", (interval, leechers, seeders, peers) => {
         self.connectQueue = self.connectQueue.concat(peers);
         self.connectQueue = _.uniq(self.connectQueue);
-        // TODO: Create a queue action and emit an update above
         if (!self.finished)
           self.newConnectionRequests();
       });
@@ -176,8 +175,8 @@ class TorrentHandler extends EventEmitter {
   createIncomingPeer(socket) {
     const self = this;
     let host   = (socket.remoteAddress) ? socket.remoteAddress : socket.host,
-        port   = (socket.remotePort) ? socket.remotePort : socket.port,
-        family = (socket.remoteFamily) ? socket.remoteFamily : socket.family,
+        port   = (socket.remotePort)    ? socket.remotePort    : socket.port,
+        family = (socket.remoteFamily)  ? socket.remoteFamily  : socket.family,
         hose   = self.hoses[host] = new Hose(self.torrent.infoHash, self.peerID);
     // Create the peer (MODES: 0 - handshake; 1 - downloading; 2 - uploading; 3 - metadata)
     self.peers[host + port] = { port, family, hose, socket, bitfield: "00", position: 0, piece: 0, mode: 2 };
@@ -227,7 +226,7 @@ class TorrentHandler extends EventEmitter {
     console.log('creating new peer');
     self.peerCount++;
     // Create the peer (MODES: 0 - handshake; 1 - downloading; 2 - uploading; 3 - metadata)
-    self.peers[host + port] = { port, family: "ipv4", hose: new Hose(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: 0, mode: 0 }; // [port, IPV-family, hose, socket, Bitfield]
+    self.peers[host + port] = { port, family: "ipv4", hose: new Hose(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: (-1), mode: 0 }; // [port, IPV-family, hose, socket, Bitfield]
     if (type === "tcp")
       self.peers[host + port].socket = connect(port, host);
     else if (type === "webrtc")
@@ -267,6 +266,13 @@ class TorrentHandler extends EventEmitter {
       self.downloadPhase(); // (from mode: 3, to: 1)
     });
 
+    self.peers[host + port]["hose"].on("pex_added", (peers) => {
+      self.connectQueue = self.connectQueue.concat(peers);
+      self.connectQueue = _.uniq(self.connectQueue);
+      if (!self.finished)
+        self.newConnectionRequests();
+    });
+
     self.peers[host + port]["hose"].on("bitfield", (payload) => {
       console.log("bitfield");
       // Add the bitfield to the host+port
@@ -302,6 +308,11 @@ class TorrentHandler extends EventEmitter {
       self._debug("finished piece");
       console.log("finished piece");
       console.log("peerCount: ", self.peerCount);
+      let speed = 0;
+      for (let p in self.peers) {
+        speed += self.peers[p]["hose"].downloadSpeed();
+      }
+      console.log("Speed:", speed);
       // Check the hash
       let blockHash = hash.digest("hex");
       let percent = 0;

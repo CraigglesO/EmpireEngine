@@ -128,7 +128,7 @@ class TorrentHandler extends events_1.EventEmitter {
         const self = this;
         console.log('creating new peer');
         self.peerCount++;
-        self.peers[host + port] = { port, family: "ipv4", hose: new Hose_1.default(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: 0, mode: 0 };
+        self.peers[host + port] = { port, family: "ipv4", hose: new Hose_1.default(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: (-1), mode: 0 };
         if (type === "tcp")
             self.peers[host + port].socket = net_1.connect(port, host);
         else if (type === "webrtc")
@@ -159,6 +159,12 @@ class TorrentHandler extends events_1.EventEmitter {
             console.log("downloadPhase");
             self.downloadPhase();
         });
+        self.peers[host + port]["hose"].on("pex_added", (peers) => {
+            self.connectQueue = self.connectQueue.concat(peers);
+            self.connectQueue = _.uniq(self.connectQueue);
+            if (!self.finished)
+                self.newConnectionRequests();
+        });
         self.peers[host + port]["hose"].on("bitfield", (payload) => {
             console.log("bitfield");
             self.peers[host + port].bitfield = payload;
@@ -187,6 +193,11 @@ class TorrentHandler extends events_1.EventEmitter {
             self._debug("finished piece");
             console.log("finished piece");
             console.log("peerCount: ", self.peerCount);
+            let speed = 0;
+            for (let p in self.peers) {
+                speed += self.peers[p]["hose"].downloadSpeed();
+            }
+            console.log("Speed:", speed);
             let blockHash = hash.digest("hex");
             let percent = 0;
             if (blockHash === self.torrent.pieces[index]) {

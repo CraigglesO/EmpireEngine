@@ -1,7 +1,7 @@
 "use strict";
 const events_1 = require("events");
 const crypto_1 = require("crypto");
-const bencode = require("bencode"), PACKET_SIZE = 16384, UT_PEX = 1, UT_METADATA = 2;
+const bencode = require("bencode"), compact2string = require("compact2string"), string2compact = require('string2compact'), PACKET_SIZE = 16384, UT_PEX = 1, UT_METADATA = 2;
 class UTmetadata extends events_1.EventEmitter {
     constructor(metaDataSize, infoHash) {
         super();
@@ -50,15 +50,53 @@ class UTpex extends events_1.EventEmitter {
         super();
         if (!(this instanceof UTpex))
             return new UTpex();
+        const self = this;
+        self.added = [];
+        self.added6 = [];
+        self.dropped = [];
+        self.dropped6 = [];
     }
-    _message(payload) { return; }
-    start() {
+    _message(payload) {
+        const self = this;
+        let dict = null;
+        try {
+            dict = bencode.decode(payload);
+        }
+        catch (e) {
+            return;
+        }
+        if (dict.added) {
+            let peers = compact2string.multi(dict.added);
+            self.emit("pex_added", peers);
+        }
+        if (dict.added6) {
+            let peers = compact2string.multi(dict.added);
+            self.emit("pex_added6", peers);
+        }
+        if (dict.dropped) {
+            let peers = compact2string.multi(dict.dropped);
+            self.emit("pex_dropped", peers);
+        }
+        if (dict.dropped6) {
+            let peers = compact2string.multi(dict.dropped);
+            self.emit("pex_dropped6", peers);
+        }
     }
-    stop() {
+    addPeer(peers) {
+        let p = string2compact.multi(peers);
+        this.added.push(p);
     }
-    addPeer() {
+    addPeer6(peers) {
+        let p = string2compact.multi(peers);
+        this.added6.push(p);
     }
-    removePeer() {
+    dropPeer(peers) {
+        let p = string2compact.multi(peers);
+        this.dropped.push(p);
+    }
+    dropPeer6(peers) {
+        let p = string2compact.multi(peers);
+        this.dropped6.push(p);
     }
 }
 exports.UTpex = UTpex;

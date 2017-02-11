@@ -46,10 +46,12 @@
     "@types/lodash": "^4.14.50",
     "bencode": "^0.11.0",
     "bitfield": "^1.1.2",
+    "compact2string": "^1.4.0",
     "extend": "^3.0.0",
     "mkdirp": "^0.5.1",
     "mobx": "^3.0.1",
     "speedometer": "^1.0.0",
+    "string2compact": "^1.2.2",
     "write-json-file": "^2.0.0",
     "wrtc": "0.0.61",
     "ws": "^1.1.1"

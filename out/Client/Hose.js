@@ -10,7 +10,7 @@ const bencode = require("bencode");
 const BITFIELD_MAX_SIZE = 100000;
 const KEEP_ALIVE_TIMEOUT = 55000;
 const DL_SIZE = 16384;
-const PROTOCOL = buffer_1.Buffer.from("BitTorrent protocol"), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]), EXTENDED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]), EXT_PROTOCOL = { "m": { "ut_metadata": 2 } }, UT_PEX = 1, UT_METADATA = 2;
+const PROTOCOL = buffer_1.Buffer.from("BitTorrent protocol"), RESERVED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00]), KEEP_ALIVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x00]), CHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00]), UNCHOKE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x01]), INTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x02]), UNINTERESTED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x03]), HAVE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x04]), BITFIELD = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x05]), REQUEST = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x0d, 0x06]), PIECE = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), CANCEL = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]), EXTENDED = buffer_1.Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]), EXT_PROTOCOL = { "m": { "ut_pex": 1, "ut_metadata": 2 } }, UT_PEX = 1, UT_METADATA = 2;
 class Hose extends stream_1.Duplex {
     constructor(infoHash, peerID) {
         super();
@@ -74,6 +74,7 @@ class Hose extends stream_1.Duplex {
     }
     _read() { }
     _write(payload, encoding, next) {
+        this.downloadSpeed(payload.length);
         this.bufferSize += payload.length;
         this.streamStore.push(payload);
         while (this.bufferSize >= this.parseSize) {
@@ -177,10 +178,22 @@ class Hose extends stream_1.Duplex {
             if (m["ut_pex"]) {
                 self.ext[UT_PEX] = new ut_extensions_1.UTpex();
                 self.ext["ut_pex"] = m["ut_pex"];
+                self.ext[UT_PEX].on("pex_added", (peers) => {
+                    self.emit("pex_added", peers);
+                });
+                self.ext[UT_PEX].on("pex_added6", (peers) => {
+                    self.emit("pex_added6", peers);
+                });
+                self.ext[UT_PEX].on("pex_dropped", (peers) => {
+                    self.emit("pex_dropped", peers);
+                });
+                self.ext[UT_PEX].on("pex_dropped6", (peers) => {
+                    self.emit("pex_dropped6", peers);
+                });
             }
         }
         else {
-            if (self.meta)
+            if (self.meta || extensionID === self.ext["ut_pex"])
                 self.ext[extensionID]._message(payload);
         }
     }

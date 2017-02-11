@@ -31,7 +31,7 @@ const PROTOCOL     = Buffer.from("BitTorrent protocol"),
       PIECE        = Buffer.from([0x00, 0x00, 0x00, 0x09, 0x07]), // Pieces are 1 code and 2 16 bit integers and then the piece...
       CANCEL       = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x08]),
       EXTENDED     = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x14]),
-      EXT_PROTOCOL = {"m": {"ut_metadata": 2} },
+      EXT_PROTOCOL = {"m": {"ut_pex": 1, "ut_metadata": 2} },
       UT_PEX       = 1,
       UT_METADATA  = 2;
 
@@ -150,6 +150,7 @@ class Hose extends Duplex {
   // Handling incoming messages with message length (this.parseSize)
   // and cueing up commands to handle the message (this.actionStore)
   _write(payload: Buffer, encoding?: string, next?: Function) {
+    this.downloadSpeed(payload.length);
     this.bufferSize += payload.length;             // Increase our buffer size count, we have more data
     this.streamStore.push(payload);                // Add the payload to our list of streams downloaded
     // Parse Size is always pre-recorded, because we know what to expect from peers
@@ -308,10 +309,23 @@ class Hose extends Duplex {
         self.ext["ut_pex"] = m["ut_pex"];
 
         // Prep emitter responces:
+        self.ext[UT_PEX].on("pex_added", (peers) => {
+          self.emit("pex_added", peers);
+        });
+        self.ext[UT_PEX].on("pex_added6", (peers) => {
+          self.emit("pex_added6", peers);
+        });
+
+        self.ext[UT_PEX].on("pex_dropped", (peers) => {
+          self.emit("pex_dropped", peers);
+        });
+        self.ext[UT_PEX].on("pex_dropped6", (peers) => {
+          self.emit("pex_dropped6", peers);
+        });
       }
     } else {
       // Handle the payload with the proper extension
-      if (self.meta)
+      if (self.meta || extensionID === self.ext["ut_pex"])
         self.ext[extensionID]._message(payload);
     }
   }
