@@ -94,6 +94,4 @@ These are the main modules that make up Empire:
 
 
 
-## Hose
-
 ## ParseTorrent
