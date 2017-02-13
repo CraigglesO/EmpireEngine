@@ -130,3 +130,14 @@ uTorrent:
   pieces: <Buffer 89 0d 3e 6e d5 d5 4b d2 10 db 86 ad 75 9b 09 2d 1c 24 83 53 3c 89 92 44 80 5c 7f f7 2f 88 60 e4 8a 04 3a 0e e1 d2 ae 3d 85 8e 25 fe 03 1c 2a 0f 55 7f ... > }
 
   NOTICE: SOMETIMES 'files' is not included
+
+
+
+
+
+
+
+
+
+  =================== PEX ==================
+  

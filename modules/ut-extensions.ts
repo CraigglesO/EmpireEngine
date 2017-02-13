@@ -1,5 +1,6 @@
-import { EventEmitter } from "events";
+import { EventEmitter }     from "events";
 import { Hash, createHash } from "crypto";
+import * as _               from "lodash";
 
 
 const bencode        = require("bencode"),
@@ -144,7 +145,7 @@ class UTpex extends EventEmitter {
       self.emit("pex_added", peers);
     }
     if (dict.added6) {
-      let peers = compact2string.multi( dict.added );
+      let peers = compact2string.multi( dict.added6 );
       self.emit("pex_added6", peers);
     }
 
@@ -153,7 +154,7 @@ class UTpex extends EventEmitter {
       self.emit("pex_dropped", peers);
     }
     if (dict.dropped6) {
-      let peers = compact2string.multi( dict.dropped );
+      let peers = compact2string.multi( dict.dropped6 );
       self.emit("pex_dropped6", peers);
     }
   }
@@ -178,7 +179,7 @@ class UTpex extends EventEmitter {
 }
 
 // BEP_0040
-function CanonicalPeerPriority () {
+function CanonicalPeerPriority (peers: any) {
 
 }
 

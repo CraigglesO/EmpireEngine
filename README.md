@@ -37,6 +37,7 @@ These are the main modules that make up Empire:
 |---|---|---|---|
 | **[EmpireEngine][EmpireEngine]** | [![][EmpireEngine-ti]][EmpireEngine-tu] | [![][empireengine-ni]][empireengine-nu] | **Torrent Client Engine (this module)**
 | [peer-tracker][peer-tracker] | [![][peer-tracker-ti]][peer-tracker-tu] | [![][peer-tracker-ni]][peer-tracker-nu] | The first persistent Bittorent Tracker
+| [bittorrent-wire][bittorrent-wire] | [![][bittorrent-wire-ti]][bittorrent-wire-tu] | [![][bittorrent-wire-ni]][bittorrent-wire-nu] | stream ready Bittorrent Protocol
 | [webRTC-Socket][webRTC-Socket] | [![][webRTC-Socket-ti]][webRTC-Socket-tu] | [![][webRTC-Socket-ni]][webRTC-Socket-nu] | Send WebRTC data to and from users
 | [ut-extensions][ut-extensions] | [![][ut-extensions-ti]][ut-extensions-tu] | [![][ut-extensions-ni]][ut-extensions-nu] | Extensions for The Bittorent Protocol
 | [torrent-piece-handler][torrent-piece-handler] | [![][torrent-piece-handler-ti]][torrent-piece-handler-tu] | [![][torrent-piece-handler-ni]][torrent-piece-handler-nu] | Quickly and easily prep for downloads without polluting your code.
@@ -54,6 +55,12 @@ These are the main modules that make up Empire:
 [peer-tracker-tu]: https://travis-ci.org/CraigglesO/peer-tracker
 [peer-tracker-ni]: https://img.shields.io/npm/v/peer-tracker.svg
 [peer-tracker-nu]: https://npmjs.org/package/peer-tracker
+
+[bittorrent-wire]:    https://github.com/CraigglesO/bittorrent-wire
+[bittorrent-wire-ti]: https://travis-ci.org/CraigglesO/bittorrent-wire.svg?branch=master
+[bittorrent-wire-tu]: https://travis-ci.org/CraigglesO/bittorrent-wire
+[bittorrent-wire-ni]: https://img.shields.io/npm/v/bittorrent-wire.svg
+[bittorrent-wire-nu]: https://npmjs.org/package/bittorrent-wire
 
 [webRTC-Socket]:    https://github.com/CraigglesO/webRTC-Socket
 [webRTC-Socket-ti]: https://travis-ci.org/CraigglesO/webRTC-Socket.svg?branch=master

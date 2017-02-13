@@ -70,7 +70,7 @@ class UTpex extends events_1.EventEmitter {
             self.emit("pex_added", peers);
         }
         if (dict.added6) {
-            let peers = compact2string.multi(dict.added);
+            let peers = compact2string.multi(dict.added6);
             self.emit("pex_added6", peers);
         }
         if (dict.dropped) {
@@ -78,7 +78,7 @@ class UTpex extends events_1.EventEmitter {
             self.emit("pex_dropped", peers);
         }
         if (dict.dropped6) {
-            let peers = compact2string.multi(dict.dropped);
+            let peers = compact2string.multi(dict.dropped6);
             self.emit("pex_dropped6", peers);
         }
     }
@@ -100,7 +100,7 @@ class UTpex extends events_1.EventEmitter {
     }
 }
 exports.UTpex = UTpex;
-function CanonicalPeerPriority() {
+function CanonicalPeerPriority(peers) {
 }
 function parseMetaData(data) {
     let t = bencode.decode(data);
