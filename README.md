@@ -40,7 +40,7 @@ These are the main modules that make up Empire:
 | [bittorrent-wire][bittorrent-wire] | [![][bittorrent-wire-ti]][bittorrent-wire-tu] | [![][bittorrent-wire-ni]][bittorrent-wire-nu] | stream ready Bittorrent Protocol
 | [webRTC-Socket][webRTC-Socket] | [![][webRTC-Socket-ti]][webRTC-Socket-tu] | [![][webRTC-Socket-ni]][webRTC-Socket-nu] | Send WebRTC data to and from users
 | [ut-extensions][ut-extensions] | [![][ut-extensions-ti]][ut-extensions-tu] | [![][ut-extensions-ni]][ut-extensions-nu] | Extensions for The Bittorent Protocol
-| [torrent-piece-handler][torrent-piece-handler] | [![][torrent-piece-handler-ti]][torrent-piece-handler-tu] | [![][torrent-piece-handler-ni]][torrent-piece-handler-nu] | Quickly and easily prep for downloads without polluting your code.
+| [torrent-piece-handler][torrent-piece-handler] | [![][torrent-piece-handler-ti]][torrent-piece-handler-tu] | [![][torrent-piece-handler-ni]][torrent-piece-handler-nu] | Quickly prep for downloads without polluting your code.
 | [binary-bitfield][binary-bitfield] | [![][binary-bitfield-ti]][binary-bitfield-tu] | [![][binary-bitfield-ni]][binary-bitfield-nu] | Track the blocks downloaded
 | [torrent-parser][torrent-parser] | [![][torrent-parser-ti]][torrent-parser-tu] | [![][torrent-parser-ni]][torrent-parser-nu] | Parse torrents and create torrent files
 | [parse-magnet-uri][parse-magnet-uri] | [![][parse-magnet-uri-ti]][parse-magnet-uri-tu] | [![][parse-magnet-uri-ni]][parse-magnet-uri-nu] | Parse a magnet link to something useful for a Bittorent app
