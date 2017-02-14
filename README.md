@@ -98,7 +98,3 @@ These are the main modules that make up Empire:
 [parse-magnet-uri-tu]: https://travis-ci.org/CraigglesO/parse-magnet-uri
 [parse-magnet-uri-ni]: https://img.shields.io/npm/v/parse-magnet-uri.svg
 [parse-magnet-uri-nu]: https://npmjs.org/package/parse-magnet-uri
-
-
-
-## ParseTorrent
