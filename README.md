@@ -42,6 +42,7 @@ These are the main modules that make up Empire:
 | [ut-extensions][ut-extensions] | [![][ut-extensions-ti]][ut-extensions-tu] | [![][ut-extensions-ni]][ut-extensions-nu] | Extensions for The Bittorent Protocol
 | [torrent-piece-handler][torrent-piece-handler] | [![][torrent-piece-handler-ti]][torrent-piece-handler-tu] | [![][torrent-piece-handler-ni]][torrent-piece-handler-nu] | Quickly and easily prep for downloads without polluting your code.
 | [binary-bitfield][binary-bitfield] | [![][binary-bitfield-ti]][binary-bitfield-tu] | [![][binary-bitfield-ni]][binary-bitfield-nu] | Track the blocks downloaded
+| [torrent-parser][torrent-parser] | [![][torrent-parser-ti]][torrent-parser-tu] | [![][torrent-parser-ni]][torrent-parser-nu] | Parse torrents and create torrent files
 | [parse-magnet-uri][parse-magnet-uri] | [![][parse-magnet-uri-ti]][parse-magnet-uri-tu] | [![][parse-magnet-uri-ni]][parse-magnet-uri-nu] | Parse a magnet link to something useful for a Bittorent app
 
 [EmpireEngine]:    https://github.com/CraigglesO/EmpireEngine
@@ -85,6 +86,12 @@ These are the main modules that make up Empire:
 [binary-bitfield-tu]: https://travis-ci.org/CraigglesO/binary-bitfield
 [binary-bitfield-ni]: https://img.shields.io/npm/v/binary-bitfield.svg
 [binary-bitfield-nu]: https://npmjs.org/package/binary-bitfield
+
+[torrent-parser]:    https://github.com/CraigglesO/torrent-parser
+[torrent-parser-ti]: https://travis-ci.org/CraigglesO/torrent-parser.svg?branch=master
+[torrent-parser-tu]: https://travis-ci.org/CraigglesO/torrent-parser
+[torrent-parser-ni]: https://img.shields.io/npm/v/torrent-parser.svg
+[torrent-parser-nu]: https://npmjs.org/package/torrent-parser
 
 [parse-magnet-uri]:    https://github.com/CraigglesO/parse-magnet-uri
 [parse-magnet-uri-ti]: https://travis-ci.org/CraigglesO/parse-magnet-uri.svg?branch=master
