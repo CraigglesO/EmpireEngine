@@ -12,4 +12,4 @@ test("Empire Tests", (t) => {
 });
 
 
-const E = new Empire();
+// const E = new Empire();
