@@ -2,62 +2,6 @@
 	"downloadDirectory": "Downloads",
 	"maxPeers": 75,
 	"downloadPriority": "bte",
-	"hashes": [
-		"481661c3d4d6c5438bc22a90e4d0978bda690387"
-	],
-	"torrents": [
-		{
-			"xt": "urn:btih:481661c3d4d6c5438bc22a90e4d0978bda690387",
-			"xl": null,
-			"as": null,
-			"xs": null,
-			"dn": "The Chainsmokers Ft Halsey -Closer MP3 Download, 2016",
-			"kt": null,
-			"mt": null,
-			"tr": [
-				"udp://tracker.leechers-paradise.org:6969",
-				"udp://zer0day.ch:1337",
-				"udp://tracker.coppersurfer.tk:6969",
-				"udp://public.popcorn-tracker.org:6969"
-			],
-			"infoHash": "481661c3d4d6c5438bc22a90e4d0978bda690387",
-			"infoHashBuffer": {
-				"type": "Buffer",
-				"data": [
-					72,
-					22,
-					97,
-					195,
-					212,
-					214,
-					197,
-					67,
-					139,
-					194,
-					42,
-					144,
-					228,
-					208,
-					151,
-					139,
-					218,
-					105,
-					3,
-					135
-				]
-			},
-			"name": "The Chainsmokers Ft Halsey -Closer MP3 Download, 2016",
-			"announce": [
-				"udp://tracker.leechers-paradise.org:6969",
-				"udp://zer0day.ch:1337",
-				"udp://tracker.coppersurfer.tk:6969",
-				"udp://public.popcorn-tracker.org:6969"
-			],
-			"uploaded": 0,
-			"downloaded": 0,
-			"bitfieldDL": "00",
-			"finished": false,
-			"left": -1
-		}
-	]
+	"hashes": [],
+	"torrents": []
 }

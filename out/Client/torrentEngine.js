@@ -1,18 +1,14 @@
 "use strict";
 const net_1 = require("net");
-const webRTC_Socket_1 = require("../modules/webRTC-Socket");
+const webrtc_socket_1 = require("webrtc-socket");
 const events_1 = require("events");
+const url_1 = require("url");
 const fs = require("fs");
-const trackerClient_1 = require("./trackerClient");
-const Hose_1 = require("./Hose");
-const parse_p2p_tracker_1 = require("../modules/parse-p2p-tracker");
-const torrent_piece_handler_1 = require("../modules/torrent-piece-handler");
+const peer_tracker_1 = require("peer-tracker");
 const binary_bitfield_1 = require("../modules/binary-bitfield");
 const _ = require("lodash");
 const extend = require("extend");
-const debug = require("debug");
-debug("torrentEngine");
-const mkdirp = require("mkdirp");
+const debug = require("debug")("torrent-engine"), mkdirp = require("mkdirp"), TPH = require("torrent-piece-handler").default, Wire = require("bittorrent-wire").default;
 const PeerData = {
     bitfield: "00",
     index: 0,
@@ -22,8 +18,7 @@ const MAX_PEERS = 55;
 class TorrentHandler extends events_1.EventEmitter {
     constructor(torrent) {
         super();
-        this._debug = function (...args) {
-            args = [].slice.call(arguments);
+        this._debug = (...args) => {
             args[0] = "[" + this._debugId + "] " + args[0];
             debug.apply(null, args);
         };
@@ -39,34 +34,38 @@ class TorrentHandler extends events_1.EventEmitter {
         self.trackerData = {};
         self.peers = {};
         self.peerCount = 0;
-        self.hoses = {};
+        self.wires = {};
         self.connectQueue = [];
         self.haveStack = [];
         self.bitfieldDL = torrent.bitfieldDL || "00";
         self.bitfield = (!torrent.pieces) ? null : new binary_bitfield_1.default(torrent.pieces.length, torrent.bitfieldDL);
-        self.tph = (!torrent.pieces) ? null : new torrent_piece_handler_1.default(torrent.files, torrent.length, torrent.pieceLength, torrent.pieces.length, torrent.lastPieceLength);
+        self.tph = (!torrent.pieces) ? null : new TPH(torrent.files, torrent.length, torrent.pieceLength, torrent.pieces.length, torrent.lastPieceLength);
         process.on("uncaughtException", function (err) {
-            console.log(err);
+            self._debug(err);
         });
         self.incomingPeers = net_1.createServer((socket) => {
             self.createIncomingPeer(socket);
         }).listen(0, () => {
             self.port = self.incomingPeers.address().port;
-            console.log(self.port);
+            self._debug("Listening on port:", self.port);
         });
-        self.incomingWrtcPeers = webRTC_Socket_1.wrtcCreateServer((socket) => {
+        self.incomingWrtcPeers = webrtc_socket_1.wrtcCreateServer((socket) => {
             self.createIncomingPeer(socket);
         });
         self.incomingWrtcPeers.listen(9001);
         self.torrent["announce"].forEach((tracker) => {
-            let pt = parse_p2p_tracker_1.default(tracker);
-            if (pt.type === "udp") {
-                self.trackers[tracker] = new trackerClient_1.UdpTracker(pt.host, pt.port, self.port, self.torrent.infoHash);
+            let pt = url_1.parse(tracker);
+            if (pt.protocol === "udp:") {
+                self.trackers[tracker] = peer_tracker_1.Client.udp("scrape", pt.hostname, pt.port, self.port, self.torrent.infoHash, self.torrent.left, self.torrent.uploaded, self.torrent.downloaded);
             }
-            else {
-                self.trackers[tracker] = new trackerClient_1.WssTracker();
+            else if (pt.protocol === "wss:") {
+                self.trackers[tracker] = peer_tracker_1.Client.ws("scrape", pt.hostname, 443, self.port, self.torrent.infoHash, self.torrent.left, self.torrent.uploaded, self.torrent.downloaded);
+            }
+            else if (pt.protocol === "ws:") {
+                self.trackers[tracker] = peer_tracker_1.Client.ws("scrape", pt.hostname, 80, self.port, self.torrent.infoHash, self.torrent.left, self.torrent.uploaded, self.torrent.downloaded);
             }
             self.trackers[tracker].on("announce", (interval, leechers, seeders, peers) => {
+                peers = peers.map((peer) => { return peer + ":" + ((self.trackers[tracker].TYPE === "udp") ? "tcp" : "ws"); });
                 self.connectQueue = self.connectQueue.concat(peers);
                 self.connectQueue = _.uniq(self.connectQueue);
                 if (!self.finished)
@@ -87,36 +86,35 @@ class TorrentHandler extends events_1.EventEmitter {
         const self = this;
         while (self.peerCount < MAX_PEERS && (self.connectQueue.length)) {
             let peer = self.connectQueue.shift().split(":");
-            self.createPeer(Number(peer[1]), peer[0], "tcp");
+            self.createPeer(Number(peer[1]), peer[0], peer[2]);
         }
     }
     createIncomingPeer(socket) {
         const self = this;
-        let host = (socket.remoteAddress) ? socket.remoteAddress : socket.host, port = (socket.remotePort) ? socket.remotePort : socket.port, family = (socket.remoteFamily) ? socket.remoteFamily : socket.family, hose = self.hoses[host] = new Hose_1.default(self.torrent.infoHash, self.peerID);
-        self.peers[host + port] = { port, family, hose, socket, bitfield: "00", position: 0, piece: (-1), mode: 2, activeCount: 0 };
-        socket.pipe(hose).pipe(socket);
-        hose.on("handshake", (infoHash, peerID) => {
+        let host = (socket.remoteAddress) ? socket.remoteAddress : socket.host, port = (socket.remotePort) ? socket.remotePort : socket.port, family = (socket.remoteFamily) ? socket.remoteFamily : socket.family, wire = self.wires[host] = new Wire(self.torrent.infoHash, self.peerID);
+        self.peers[host + port] = { port, family, wire, socket, bitfield: "00", position: 0, piece: (-1), mode: 2, activeCount: 0 };
+        socket.pipe(wire).pipe(socket);
+        wire.on("handshake", (infoHash, peerID) => {
             if (self.torrent.infoHash !== infoHash.toString("hex"))
                 return;
-            hose.sendHandshake();
-            hose.metaDataHandshake();
-            hose.sendBitfield(self.bitfieldDL);
+            wire.sendHandshake();
+            wire.sendBitfield(self.bitfieldDL);
         });
-        hose.on("request", () => {
-            if (!hose.reqBusy) {
-                hose.reqBusy = true;
-                while (hose.inRequests.length) {
-                    let request = hose.inRequests.shift();
+        wire.on("request", () => {
+            if (!wire.reqBusy) {
+                wire.reqBusy = true;
+                while (wire.inRequests.length) {
+                    let request = wire.inRequests.shift();
                     self.tph.prepareUpload(request.index, request.begin, request.length, (piece) => {
                         process.nextTick(() => {
-                            hose.sendPiece(piece);
+                            wire.sendPiece(piece);
                         });
                     });
                 }
-                hose.reqBusy = false;
+                wire.reqBusy = false;
             }
         });
-        hose.on("have", (pieceIndex) => {
+        wire.on("have", (pieceIndex) => {
         });
         self.peers[host + port].socket.on("close", () => {
             self._debug("the socket decided to leave");
@@ -126,78 +124,76 @@ class TorrentHandler extends events_1.EventEmitter {
     }
     createPeer(port, host, type) {
         const self = this;
-        console.log("creating new peer");
+        self._debug("Create new peer");
         self.peerCount++;
-        self.peers[host + port] = { port, family: "ipv4", hose: new Hose_1.default(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: (-1), mode: 0, activeCount: 0 };
+        self.peers[host + port] = { port, family: "ipv4", wire: new Wire(self.torrent.infoHash, self.peerID), socket: null, bitfield: "00", position: 0, piece: (-1), mode: 0, activeCount: 0 };
         if (type === "tcp")
             self.peers[host + port].socket = net_1.connect(port, host);
-        else if (type === "webrtc")
-            self.peers[host + port].socket = webRTC_Socket_1.wrtcConnect(port, host);
+        else if (type === "ws")
+            self.peers[host + port].socket = webrtc_socket_1.wrtcConnect(port, host);
         self.peers[host + port].socket.once("connect", () => {
-            self.peers[host + port]["socket"].pipe(self.peers[host + port].hose).pipe(self.peers[host + port]["socket"]);
-            self.peers[host + port].hose.sendHandshake();
+            self.peers[host + port]["socket"].pipe(self.peers[host + port].wire).pipe(self.peers[host + port]["socket"]);
+            self.peers[host + port].wire.sendHandshake();
         });
         self.peers[host + port].socket.on("error", (err) => {
-            self.peers[host + port].hose.close();
+            self.peers[host + port].wire.closeConnection();
             self.peers[host + port].socket.destroy();
-            self.peers[host + port] = null;
             delete self.peers[host + port];
             self.newConnectionRequests();
         });
         self.peers[host + port].socket.on("close", () => {
-            self.peers[host + port] = null;
+            if (self.peers[host + port].socket)
+                self.peers[host + port].socket.destroy();
             delete self.peers[host + port];
             self.peerCount--;
             self.newConnectionRequests();
         });
-        self.peers[host + port]["hose"].on("metadata", (torrent) => {
-            console.log("metadata");
+        self.peers[host + port]["wire"].on("metadata", (torrent) => {
+            self._debug("Incoming metadata");
             extend(self.torrent, torrent);
             self.bitfield = new binary_bitfield_1.default(self.torrent.pieces.length, self.torrent.bitfieldDL);
             self.manageFiles();
-            self.tph = new torrent_piece_handler_1.default(self.torrent.files, self.torrent.length, self.torrent.pieceLength, self.torrent.pieces.length, self.torrent.lastPieceLength);
-            console.log("downloadPhase");
+            self.tph = new TPH(self.torrent.files, self.torrent.length, self.torrent.pieceLength, self.torrent.pieces.length, self.torrent.lastPieceLength);
+            self._debug("Download phase");
             self.downloadPhase();
         });
-        self.peers[host + port]["hose"].on("pex_added", (peers) => {
+        self.peers[host + port]["wire"].on("pex_added", (peers) => {
             self.connectQueue = self.connectQueue.concat(peers);
             self.connectQueue = _.uniq(self.connectQueue);
             if (!self.finished)
                 self.newConnectionRequests();
         });
-        self.peers[host + port]["hose"].on("bitfield", (payload) => {
-            console.log("bitfield");
+        self.peers[host + port]["wire"].on("bitfield", (payload) => {
+            self._debug("peer's bitfield");
             self.peers[host + port].bitfield = payload;
-            if (self.peers[host + port]["hose"].isChoked)
-                self.peers[host + port]["hose"].sendInterested();
+            if (self.peers[host + port]["wire"].isChoked)
+                self.peers[host + port]["wire"].sendInterested();
             if (self.torrent.pieces) {
                 self.peers[host + port].mode = 1;
                 self.fetchNewPiece(self.peers[host + port]);
             }
             else {
                 self.peers[host + port].mode = 3;
-                self.peers[host + port]["hose"].metaDataRequest();
+                self.peers[host + port]["wire"].metaDataRequest();
             }
         });
-        self.peers[host + port]["hose"].on("have", (payload) => {
+        self.peers[host + port]["wire"].on("have", (payload) => {
             if (!self.bitfield)
                 return;
             self.peers[host + port].bitfield = self.bitfield.onHave(payload, self.peers[host + port].bitfield);
-            let busy = self.peers[host + port]["hose"].isBusy();
+            let busy = self.peers[host + port]["wire"].isBusy();
             if (!busy && !self.finished && self.torrent.pieces.length) {
-                self.peers[host + port]["hose"].setBusy();
+                self.peers[host + port]["wire"].setBusy();
                 self.fetchNewPiece(self.peers[host + port]);
             }
         });
-        self.peers[host + port]["hose"].on("finished_piece", (index, block, hash) => {
+        self.peers[host + port]["wire"].on("finished_piece", (index, block, hash) => {
             self._debug("finished piece");
-            console.log("finished piece");
-            console.log("peerCount: ", self.peerCount);
+            self._debug("peerCount: ", self.peerCount);
             let speed = 0;
             for (let p in self.peers) {
-                speed += self.peers[p]["hose"].downloadSpeed();
+                speed += self.peers[p]["wire"].downloadSpeed();
             }
-            console.log("Speed:", speed);
             let blockHash = hash.digest("hex");
             let percent = 0;
             if (blockHash === self.torrent.pieces[index]) {
@@ -207,11 +203,11 @@ class TorrentHandler extends events_1.EventEmitter {
                 percent = self.bitfield.setDownloaded(self.peers[host + port].piece);
             }
             else {
-                console.log("failed hash");
+                self._debug("failed hash");
                 self.bitfield.set(self.peers[host + port].piece, false);
             }
-            console.log("index downloaded: ", index);
-            console.log("percent:          ", percent);
+            self._debug("index downloaded: ", index);
+            self._debug("percent:          ", percent);
             if (percent === 1) {
                 self.finished = true;
                 self.finish();
@@ -231,12 +227,12 @@ class TorrentHandler extends events_1.EventEmitter {
                 peer.piece = which;
                 peer.position = self.tph.pieceIndex(which);
                 self.tph.prepareRequest(which, (buf, count) => {
-                    this._debug("send piece request %n", count);
-                    peer["hose"].sendRequest(buf, count);
+                    this._debug(`send ${count} piece request(s)`);
+                    peer["wire"].sendRequest(buf, count);
                 });
             }
             else {
-                peer["hose"].unsetBusy();
+                peer["wire"].unsetBusy();
             }
         });
     }
@@ -244,7 +240,7 @@ class TorrentHandler extends events_1.EventEmitter {
         const self = this;
         for (let host in self.peers) {
             if (self.peers[host].mode === 3) {
-                self.peers[host]["hose"].removeMeta();
+                self.peers[host]["wire"].removeMeta();
             }
             self.peers[host].mode = 1;
             self.fetchNewPiece(self.peers[host]);
@@ -252,13 +248,13 @@ class TorrentHandler extends events_1.EventEmitter {
     }
     finish() {
         const self = this;
-        console.log("DONE!");
+        self._debug("DONE");
     }
     cleanupSeeders() {
         const self = this;
         for (let host in self.peers) {
             if (self.bitfield.isSeeder(self.peers[host].bitfield)) {
-                self.peers[host].hose.close();
+                self.peers[host].wire.closeConnection();
                 self.peers[host].socket.destroy();
                 delete self.peers[host];
             }

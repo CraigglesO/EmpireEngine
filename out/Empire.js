@@ -1,18 +1,19 @@
 "use strict";
 const stream_1 = require("stream");
 const fs = require("fs");
-const debug = require("debug");
-debug("Empire");
-const parseTorrent_1 = require("./modules/parseTorrent");
-const parse_magnet_uri_1 = require("./modules/parse-magnet-uri");
 const torrentEngine_1 = require("./Client/torrentEngine");
-const readJsonSync = require("read-json-sync");
-const writeJsonFile = require("write-json-file");
-const mkdirp = require("mkdirp");
+const { decodeTorrentFile, decodeTorrent, encodeTorrent } = require("torrent-parser");
+const { parseMagnet, encodeMagnet } = require("parse-magnet-uri");
+const debug = require("debug")("empire"), readJsonSync = require("read-json-sync"), writeJsonFile = require("write-json-file"), mkdirp = require("mkdirp");
 class Empire extends stream_1.Writable {
     constructor() {
         super();
+        this._debug = (...args) => {
+            args[0] = "[" + this._debugId + "] " + args[0];
+            debug.apply(null, args);
+        };
         const self = this;
+        self._debugId = ~~((Math.random() * 100000) + 1);
         self.config = readJsonSync("config.json");
         self.downloadDirectory = self.config["downloadDirectory"];
         self.maxPeers = self.config["maxPeers"];
@@ -20,6 +21,9 @@ class Empire extends stream_1.Writable {
         self.torrents = {};
         process.stdin.pipe(self);
         self.handleTorrents();
+        self._debug("Instantiate Empire");
+        process.on("uncaughtException", function (err) {
+        });
     }
     _write(chunk, encoding, next) {
         this.importTorrentFile(chunk.toString());
@@ -27,13 +31,14 @@ class Empire extends stream_1.Writable {
     }
     importTorrentFile(file) {
         const self = this;
+        self._debug("Import torrent file");
         file = file.trim();
         let torrent = null;
         if (file.indexOf("magnet") > -1) {
-            torrent = parse_magnet_uri_1.parseMagnet(file);
+            torrent = parseMagnet(file);
         }
         else {
-            torrent = parseTorrent_1.decodeTorrentFile(file);
+            torrent = decodeTorrentFile(file);
         }
         if (!torrent["infoHash"]) {
             console.log("Error, bad file");

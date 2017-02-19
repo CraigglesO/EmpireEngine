@@ -1,11 +1,11 @@
-# Empire [![travis][travis-image]][travis-url] [![npm][npm-image]][npm-url]  [![downloads][downloads-image]][downloads-url]
+# Empire Engine [![travis][travis-image]][travis-url] [![npm][npm-image]][npm-url]  [![downloads][downloads-image]][downloads-url] [![Greenkeeper badge](https://badges.greenkeeper.io/CraigglesO/EmpireEngine.svg)](https://greenkeeper.io/)
 
 [travis-image]: https://travis-ci.org/CraigglesO/EmpireEngine.svg?branch=master
 [travis-url]: https://travis-ci.org/CraigglesO/EmpireEngine
-[npm-image]: https://img.shields.io/npm/v/empireengine.svg
-[npm-url]: https://npmjs.org/package/empireengine
-[downloads-image]: https://img.shields.io/npm/dm/empireengine.svg
-[downloads-url]: https://npmjs.org/package/empireengine
+[npm-image]: https://img.shields.io/npm/v/empire-engine.svg
+[npm-url]: https://npmjs.org/package/empire-engine
+[downloads-image]: https://img.shields.io/npm/dm/empire-engine.svg
+[downloads-url]: https://npmjs.org/package/empire-engine
 
 ### Let's build a connected world together
 
@@ -14,12 +14,12 @@ This is the underlining engine that fuels our P2P connections.
 ## Install
 
 ```
-npm install EmpireJS
+npm install empire-engine
 ```
 
 ## Usage
 ```
-import Empire from 'EmpireJS';
+const Empire = require("empire-engine").default; // CommonJS
 
 
 let E = new Empire();

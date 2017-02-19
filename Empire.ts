@@ -1,17 +1,17 @@
 import { Writable } from "stream";
 import * as fs from "fs";
-import * as debug from "debug";
-debug("Empire");
 
-import { decodeTorrentFile, decodeTorrent, encodeTorrent } from "./modules/parseTorrent";
-import { parseMagnet, encodeMagnet } from "./modules/parse-magnet-uri";
 import torrentEngine from "./Client/torrentEngine";
+const { decodeTorrentFile, decodeTorrent, encodeTorrent } = require("torrent-parser");
+const { parseMagnet, encodeMagnet } = require("parse-magnet-uri");
 
-const readJsonSync = require("read-json-sync");
-const writeJsonFile = require("write-json-file");
-const mkdirp = require("mkdirp");
+const debug         = require("debug")("empire"),
+      readJsonSync = require("read-json-sync"),
+      writeJsonFile = require("write-json-file"),
+      mkdirp = require("mkdirp");
 
 class Empire extends Writable {
+  _debugId:          number;
   config:            Object;
   downloadDirectory: string;
   maxPeers:          number;
@@ -20,6 +20,8 @@ class Empire extends Writable {
   constructor() {
     super();
     const self = this;
+
+    self._debugId      = ~~((Math.random() * 100000) + 1);
 
     self.config            = readJsonSync("config.json");
     self.downloadDirectory = self.config["downloadDirectory"];
@@ -33,6 +35,12 @@ class Empire extends Writable {
 
     // Begin P2P with torrent files saved;
     self.handleTorrents();
+
+    self._debug("Instantiate Empire");
+
+    // Health Insurrance:
+    process.on("uncaughtException", function (err) {
+    });
   }
 
   _write(chunk: Buffer, encoding: string, next: Function) {
@@ -42,6 +50,7 @@ class Empire extends Writable {
 
   importTorrentFile(file: string) {
     const self = this;
+    self._debug("Import torrent file");
     // File = file.slice(0,file.length - 2);
     file = file.trim();
     // If Magnet file, parse it:
@@ -104,6 +113,11 @@ class Empire extends Writable {
 
         // this.torrents[torrent.infoHash].on('killSwitch', () => { });
     });
+  }
+
+  _debug = (...args: any[]) => {
+    args[0] = "[" + this._debugId + "] " + args[0];
+    debug.apply(null, args);
   }
 
 }

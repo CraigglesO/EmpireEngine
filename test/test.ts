@@ -10,3 +10,6 @@ test("Empire Tests", (t) => {
   t.end();
 
 });
+
+
+const E = new Empire();
