@@ -13,12 +13,12 @@ This is the underlining engine that fuels our P2P connections.
 
 ## Install
 
-```
+``` javascript
 npm install empire-engine
 ```
 
 ## Usage
-```
+``` javascript
 const Empire = require("empire-engine").default; // CommonJS
 
 
