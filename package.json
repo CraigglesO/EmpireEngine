@@ -46,7 +46,7 @@
     "@types/lodash": "^4.14.50",
     "@types/node": "^8.0.0",
     "bencode": "^0.12.0",
-    "bitfield": "^1.1.2",
+    "bitfield": "^2.0.0",
     "bittorrent-wire": "^0.9.1",
     "compact2string": "^1.4.0",
     "extend": "^3.0.0",
