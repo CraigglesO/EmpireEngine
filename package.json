@@ -55,7 +55,7 @@
     "parse-magnet-uri": "^4.0.0",
     "peer-tracker": "^1.0.3",
     "speedometer": "^1.0.0",
-    "string2compact": "^1.2.2",
+    "string2compact": "^1.2.6",
     "torrent-parser": "^1.0.5",
     "torrent-piece-handler": "^3.20.2",
     "webrtc-socket": "^0.2.4",
