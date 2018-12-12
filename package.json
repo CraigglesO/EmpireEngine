@@ -51,7 +51,7 @@
     "compact2string": "^1.4.0",
     "extend": "^3.0.0",
     "mkdirp": "^0.5.1",
-    "mobx": "^3.0.1",
+    "mobx": "^5.8.0",
     "parse-magnet-uri": "^4.0.0",
     "peer-tracker": "^1.0.3",
     "speedometer": "^1.0.0",
