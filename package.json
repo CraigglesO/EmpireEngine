@@ -44,7 +44,7 @@
   "dependencies": {
     "@types/extend": "^2.0.30",
     "@types/lodash": "^4.14.50",
-    "@types/node": "^8.0.0",
+    "@types/node": "^11.11.8",
     "bencode": "^0.12.0",
     "bitfield": "^1.1.2",
     "bittorrent-wire": "^0.9.1",
